@@ -5,19 +5,20 @@ import PackageDescription
 
 let package = Package(
     name: "swiftpy-views",
+    platforms: [.iOS(.v26), .macOS(.v26), .visionOS(.v26)],
     products: [
-        // Products define the executables and libraries a package produces, making them visible to other packages.
         .library(
-            name: "swiftpy-views",
-            targets: ["swiftpy-views"]
+            name: "SwiftPyViews",
+            targets: ["SwiftPyViews"]
         ),
     ],
+    dependencies: [
+        .package(url: "https://github.com/felfoldy/SwiftPy", from: "0.14.0"),
+    ],
     targets: [
-        // Targets are the basic building blocks of a package, defining a module or a test suite.
-        // Targets can depend on other targets in this package and products from dependencies.
         .target(
-            name: "swiftpy-views"
+            name: "SwiftPyViews",
+            dependencies: ["SwiftPy"]
         ),
-
     ]
 )
