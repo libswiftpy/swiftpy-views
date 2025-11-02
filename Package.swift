@@ -18,7 +18,7 @@ let package = Package(
     targets: [
         .target(
             name: "SwiftPyViews",
-            dependencies: ["SwiftPy"]
+            dependencies: ["SwiftPy"],
         ),
     ]
 )

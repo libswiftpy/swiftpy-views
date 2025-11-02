@@ -3,13 +3,18 @@
 
 import SwiftUI
 import SwiftPy
+import pocketpy
 
 public struct PythonWindows: Scene {
     public init() {
         Interpreter.bindModule("views", [
-            Window.self,
+            PythonView.self,
             VStack.self,
+            Window.self,
             Text.self,
+            Button.self,
+            Thumbnail.self,
+            ScrollView.self,
         ])
     }
     

@@ -11,6 +11,7 @@ import pocketpy
 
 enum ContainerSlot: Int32, CaseIterable {
     case content
+    case action
 }
 
 protocol Container: HasSlots where Slot == ContainerSlot {}
@@ -28,7 +29,7 @@ extension Container where Self: PythonBindable {
 }
 
 @Observable
-@Scriptable
+@Scriptable(base: .View)
 final class VStack: ViewRepresentable, Container {
     init(arguments: PyArguments) throws {
         // Init with list.

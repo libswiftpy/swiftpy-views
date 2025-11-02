@@ -9,7 +9,7 @@ import SwiftPy
 import SwiftUI
 
 @Observable
-@Scriptable
+@Scriptable(base: .View)
 final class Text {
     var text: String
 
