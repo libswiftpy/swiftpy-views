@@ -9,12 +9,14 @@ public struct PythonWindows: Scene {
     public init() {
         Interpreter.bindModule("views", [
             PythonView.self,
-            VStack.self,
-            Window.self,
-            Text.self,
             Button.self,
-            Thumbnail.self,
             ScrollView.self,
+            Text.self,
+            Thumbnail.self,
+            Image.self,
+            VStack.self,
+            
+            Window.self,
         ])
     }
     

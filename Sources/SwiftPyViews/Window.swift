@@ -49,9 +49,8 @@ class Window: Identifiable {
     }
 
     func open() throws {
-        guard let view = content?.view?.view,
-              !Window.presentedWindows.contains(id) else {
-            return
+        guard let view = content?.view?.view else {
+            throw PythonError.RuntimeError("Content is not view representable.")
         }
 
         let defaults = EnvironmentValues()

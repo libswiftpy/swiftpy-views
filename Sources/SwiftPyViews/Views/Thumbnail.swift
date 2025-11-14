@@ -29,7 +29,7 @@ struct ThumbnailView: View {
     let url: URL
     @Environment(\.displayScale) var scale
     
-    @State var image: Image?
+    @State var image: SwiftUI.Image?
     
     var body: some View {
         Group {
@@ -53,9 +53,9 @@ struct ThumbnailView: View {
                 .generateBestRepresentation(for: request)
             if let representation {
                 #if canImport(UIKit)
-                self.image = Image(uiImage: representation.uiImage)
+                self.image = SwiftUI.Image(uiImage: representation.uiImage)
                 #else
-                self.image = Image(nsImage: representation.nsImage)
+                self.image = SwiftUI.Image(nsImage: representation.nsImage)
                 #endif
             }
         }
