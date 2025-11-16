@@ -9,25 +9,6 @@ import SwiftPy
 import SwiftUI
 import pocketpy
 
-enum ContainerSlot: Int32, CaseIterable {
-    case content
-    case action
-}
-
-protocol Container: HasSlots where Slot == ContainerSlot {}
-
-extension Container where Self: PythonBindable {
-    var views: [AnyView] {
-        var views: [AnyView] = []
-        try? self[.content]?.toStack.iterate { ref in
-            if let view = ref.reference?.view?.view {
-                views.append(view)
-            }
-        }
-        return views
-    }
-}
-
 @Observable
 @Scriptable(base: .View)
 final class VStack: ViewRepresentable, Container {
@@ -43,9 +24,7 @@ final class VStack: ViewRepresentable, Container {
         
         var body: some View {
             SwiftUI.VStack {
-                ForEach(model.views.enumerated(), id: \.offset) { offset, view in
-                    view
-                }
+                model.contentView
             }
         }
     }

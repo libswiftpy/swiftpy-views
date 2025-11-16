@@ -43,7 +43,7 @@ final class Button: ViewRepresentable, Container {
                     }
                 }
             } label: {
-                model[.content]?.view?.view
+                model.contentView
                     .opacity(isProgressing ? 0 : 1)
                     .overlay {
                         if isProgressing {

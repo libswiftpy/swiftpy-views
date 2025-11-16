@@ -41,15 +41,12 @@ class Window: Identifiable {
         }
         id = ID(id: String(Int(bitPattern: content)))
         arguments[Slot.content] = arguments[1]
-    }
-    
-    init(id: String) {
-        self.id = ID(id: id)
-        Window.windows[self.id] = self
+        
+        Window.windows[id] = self
     }
 
     func open() throws {
-        guard let view = content?.view?.view else {
+        guard let view = content?.anyView else {
             throw PythonError.RuntimeError("Content is not view representable.")
         }
 

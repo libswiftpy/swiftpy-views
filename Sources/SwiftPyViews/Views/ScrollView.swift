@@ -22,9 +22,7 @@ final class ScrollView: ViewRepresentable, Container {
         
         var body: some View {
             SwiftUI.ScrollView {
-                ForEach(model.views.enumerated(), id: \.offset) { _, view in
-                    view
-                }
+                model.contentView
             }
         }
     }
