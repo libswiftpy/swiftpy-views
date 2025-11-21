@@ -4,12 +4,14 @@
 import SwiftUI
 import SwiftPy
 import pocketpy
+import HighlightSwift
 
 public struct PythonWindows: Scene {
     public init() {
         Interpreter.bindModule("views", [
             PythonView.self,
             Button.self,
+            CodeView.self,
             ScrollView.self,
             Text.self,
             Thumbnail.self,
@@ -36,6 +38,41 @@ public struct PythonWindows: Scene {
                 }
             }
         }
+        
+        Interpreter.main.bind("help(module: object) -> None") {
+            argc,
+            argv in
+            PyAPI.returnOrThrow {
+                var module = argv
+                if let moduleName = String(argv) {
+                    module = Interpreter.module(moduleName)
+                    guard module != nil else {
+                        throw PythonError.ImportError("No module named \(moduleName)")
+                    }
+                }
+                
+                let name = try String.cast(module?["__name__"])
+                let doc = try String.cast(module?["__doc__"])
+                
+                let window = Window(id: "help[\(name)]")
+                window.view = ViewRepresentation {
+                    GeometryReader { geo in
+                        SwiftUI.ScrollView([.horizontal, .vertical]) {
+                            CodeText(doc).highlightLanguage(.python)
+                                .padding(4)
+                                .frame(
+                                    minWidth: geo.size.width,
+                                    minHeight: geo.size.height,
+                                    alignment: .topLeading
+                                )
+                        }
+                    }
+                    
+                }
+                try window.open()
+                return
+            }
+        }
     }
     
     public var body: some Scene {
@@ -52,6 +89,6 @@ private struct OpenedWindow: View {
     @State var window: Window
     
     var body: some View {
-        window.content?.anyView
+        window.view?.view
     }
 }

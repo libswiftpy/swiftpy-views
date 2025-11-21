@@ -10,16 +10,19 @@ import AVFoundation
 
 @MainActor
 @Scriptable
+/// An object that plays audio data from a file.
 public class AudioPlayer {
     internal let player: AVAudioPlayer
 
+    /// Creates a player to play audio from a file.
     public init(path: String) throws {
         guard let url = URL(string: path) else {
             throw PythonError.RuntimeError("Invalid URL: \(path)")
         }
-        player = try AVAudioPlayer(contentsOf: url)
+        player = try AVAudioPlayer.init(contentsOf: url)
     }
 
+    /// Plays audio.
     public func play() {
         player.play()
     }

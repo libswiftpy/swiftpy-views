@@ -14,11 +14,12 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/felfoldy/SwiftPy", from: "0.14.0"),
+        .package(url: "https://github.com/appstefan/HighlightSwift.git", from: "1.1.0"),
     ],
     targets: [
         .target(
             name: "SwiftPyViews",
-            dependencies: ["SwiftPy"],
+            dependencies: ["SwiftPy", "HighlightSwift"],
         ),
     ]
 )

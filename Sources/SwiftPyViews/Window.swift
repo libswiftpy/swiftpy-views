@@ -21,33 +21,24 @@ class Window: Identifiable {
 
     typealias object = PyAPI.Reference
 
-    var content: object? {
-        get { self[.content] }
-        set { self[.content] = newValue }
-    }
+    var view: ViewRepresentation?
 
     internal let id: ID
+    
+    init(id: String) {
+        self.id = ID(id: id)
+        Window.windows[self.id] = self
+    }
 
-    init(arguments: PyArguments) throws {
-        try arguments.expectedArgCount(2)
-        // Create an empty window with the ID.
-        if let id = String(arguments[1]) {
-            self.id = ID(id: id)
-            return
-        }
-
-        guard let content = arguments[1] else {
-            throw PythonError.ValueError("Expected a view at position 1")
-        }
-        id = ID(id: String(Int(bitPattern: content)))
-        arguments[Slot.content] = arguments[1]
-        
+    init(view: object) {
+        id = ID(id: String(Int(bitPattern: view)))
+        self.view = view.view
         Window.windows[id] = self
     }
 
     func open() throws {
-        guard let view = content?.anyView else {
-            throw PythonError.RuntimeError("Content is not view representable.")
+        guard let view else {
+            throw PythonError.AssertionError("No view to present.")
         }
 
         let defaults = EnvironmentValues()
