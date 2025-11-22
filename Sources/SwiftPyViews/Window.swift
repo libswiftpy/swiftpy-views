@@ -37,7 +37,7 @@ class Window: Identifiable {
     }
 
     func open() throws {
-        guard let view else {
+        guard let view = view?.view else {
             throw PythonError.AssertionError("No view to present.")
         }
 
