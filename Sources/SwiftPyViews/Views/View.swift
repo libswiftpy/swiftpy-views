@@ -9,7 +9,7 @@ import SwiftPy
 import SwiftUI
 
 @MainActor
-extension PyType {
+public extension PyType {
     static let View: PyType = PythonView.pyType
 }
 
