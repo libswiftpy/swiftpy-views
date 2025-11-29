@@ -17,6 +17,7 @@ public struct PythonWindows: Scene {
             Thumbnail.self,
             Image.self,
             VStack.self,
+            Model3D.self,
             
             Window.self,
         ]) { module in
@@ -29,15 +30,12 @@ public struct PythonWindows: Scene {
 
         Interpreter.bindModule("audio", [
             AudioPlayer.self,
-        ]) { module in
-            module?.bind("play(path: str) -> None") { _, argv in
-                PyAPI.returnOrThrow {
-                    let path = try String.cast(argv)
-                    try AudioPlayer(path: path).play()
-                    return
-                }
-            }
-        }
+        ])
+        
+        Interpreter.bindModule("music", [
+            MusicPlayer.self,
+            Song.self,
+        ])
         
         Interpreter.main.bind("help(module: object) -> None") {
             argc,

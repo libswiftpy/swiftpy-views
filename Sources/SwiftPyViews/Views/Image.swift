@@ -20,19 +20,19 @@ extension SwiftUI.Image {
     }
 }
 
-@Scriptable
-final class Image: ViewRepresentable {
-    private let image: SwiftUI.Image
-    
+/// A view that displays an image.
+@Scriptable(base: .View)
+final class Image: WrappedObject<SwiftUI.Image>, ViewRepresentable {
+    /// Initializes and returns the image object with the specified data.
     init(data: Data) throws {
         guard let image = SwiftUI.Image.from(data) else {
             throw PythonError.ValueError("Invalid image data.")
         }
 
-        self.image = image
+        super.init(image)
     }
     
     var view: some View {
-        image
+        value
     }
 }

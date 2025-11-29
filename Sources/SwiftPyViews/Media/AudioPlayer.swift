@@ -8,9 +8,8 @@
 import SwiftPy
 import AVFoundation
 
-@MainActor
-@Scriptable
 /// An object that plays audio data from a file.
+@Scriptable
 public class AudioPlayer {
     internal let player: AVAudioPlayer
 
