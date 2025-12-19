@@ -11,10 +11,7 @@ import SwiftUI
 @Scriptable(base: .View)
 final class ScrollView: ViewRepresentable, Container {
     init(arguments: PyArguments) throws {
-        // Init with list.
-        if arguments.count == 2 {
-            arguments[Slot.content] = arguments[1]
-        }
+        Self.setContent(arguments)
     }
     
     struct Content: RepresentationContent {

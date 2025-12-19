@@ -12,14 +12,16 @@ import LogTools
 
 @Scriptable(base: .View)
 final class Model3D: ViewRepresentable {
-    let path: SwiftPy.Path
+    typealias Path = SwiftPy.Path
     
-    init(path: SwiftPy.Path) {
+    let path: Path
+    
+    init(path: Path) {
         self.path = path
     }
     
     init(name: String) throws {
-        self.path = try SwiftPy.Path(path: name)
+        self.path = try Path(path: name)
     }
     
     struct Content: RepresentationContent {

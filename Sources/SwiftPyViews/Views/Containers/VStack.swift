@@ -9,14 +9,12 @@ import SwiftPy
 import SwiftUI
 import pocketpy
 
-@Observable
+/// A view that arranges its subviews in a vertical line.
 @Scriptable(base: .View)
+@Observable
 final class VStack: ViewRepresentable, Container {
-    init(arguments: PyArguments) throws {
-        // Init with list.
-        if arguments.count == 2 {
-            arguments[Slot.content] = arguments[1]
-        }
+    init(arguments: PyArguments) {
+        Self.setContent(arguments)
     }
 
     struct Content: RepresentationContent {

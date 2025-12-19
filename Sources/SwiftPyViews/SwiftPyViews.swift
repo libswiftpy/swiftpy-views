@@ -9,15 +9,20 @@ import HighlightSwift
 public struct PythonWindows: Scene {
     public init() {
         Interpreter.bindModule("views", [
+            Alignment.self,
+
             PythonView.self,
             Button.self,
             CodeView.self,
-            ScrollView.self,
             Text.self,
             Thumbnail.self,
             Image.self,
-            VStack.self,
             Model3D.self,
+            
+            HStack.self,
+            ScrollView.self,
+            VStack.self,
+            ZStack.self,
             
             Window.self,
         ]) { module in
@@ -25,6 +30,17 @@ public struct PythonWindows: Scene {
 
             view?.bind("padding(self) -> View") { _, argv in
                 PyAPI.return(PaddingModifier().apply(argv))
+            }
+            
+            view?.bind("align(self, aligment: str)") { _, argv in
+                PyAPI.returnOrThrow {
+                    let aligment = try String.cast(argv, 1)
+                    return AlignmentModifier(
+                        horizontal: Alignment.horizontal(aligment),
+                        vertical: Alignment.vertical(aligment)
+                    )
+                    .apply(argv)
+                }
             }
         }
 

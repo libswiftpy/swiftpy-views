@@ -9,7 +9,7 @@ import SwiftPy
 import SwiftUI
 
 @Observable
-@Scriptable
+@Scriptable(base: .View)
 class PaddingModifier: Modifier {
     var content: object? {
         get { self[.content] }
@@ -17,9 +17,7 @@ class PaddingModifier: Modifier {
     }
 
     required internal init() {}
-}
-
-extension PaddingModifier: ViewRepresentable {
+    
     struct Content: RepresentationContent {
         @State var model: PaddingModifier
 

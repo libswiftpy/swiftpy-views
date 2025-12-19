@@ -7,18 +7,7 @@
 
 import SwiftUI
 import SwiftPy
-
-extension SwiftUI.Image {
-    static func from(_ data: Data) -> SwiftUI.Image? {
-        #if canImport(UIKit)
-        guard let uiImage = UIImage(data: data) else { return nil }
-        return SwiftUI.Image(uiImage: uiImage)
-        #else
-        guard let nsImage = NSImage(data: data) else { return nil }
-        return SwiftUI.Image(nsImage: nsImage)
-        #endif
-    }
-}
+import ImagePlayground
 
 /// A view that displays an image.
 @Scriptable(base: .View)
@@ -31,8 +20,53 @@ final class Image: WrappedObject<SwiftUI.Image>, ViewRepresentable {
 
         super.init(image)
     }
-    
+
+    internal override init(_ value: SwiftUI.Image) {
+        super.init(value)
+    }
+
     var view: some View {
         value
+            .resizable()
+            .scaledToFit()
+    }
+    
+    static func create(text: String) async throws -> Image {
+        let creator = try await ImageCreator()
+
+        for try await image in creator.images(for: [.text(text)], style: .animation, limit: 1) {
+            let value = PlatformImage(cgImage: image.cgImage).swiftUI
+            return Image(value)
+        }
+
+        throw PythonError.RuntimeError("Failed to create an image.")
+    }
+}
+
+#if canImport(UIKit)
+typealias PlatformImage = UIImage
+#else
+typealias PlatformImage = NSImage
+
+extension PlatformImage {
+    convenience init(cgImage: CGImage) {
+        self.init(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
+    }
+}
+#endif
+
+extension PlatformImage {
+    var swiftUI: SwiftUI.Image {
+        #if canImport(UIKit)
+        return SwiftUI.Image(uiImage: self)
+        #else
+        return SwiftUI.Image(nsImage: self)
+        #endif
+    }
+}
+
+extension SwiftUI.Image {
+    static func from(_ data: Data) -> SwiftUI.Image? {
+        PlatformImage(data: data)?.swiftUI
     }
 }
