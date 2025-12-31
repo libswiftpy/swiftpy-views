@@ -89,6 +89,7 @@ final class Song: WrappedObject<MusicKit.Song>, Sendable {
 
     /// Fetches a song by the specified id.
     static func fromId(id: String) async throws -> Song? {
+        try await Music.authorize()
         let result = try await MusicCatalogResourceRequest<MusicKit.Song>(
             matching: \SongFilter.id,
             equalTo: MusicItemID(id)
