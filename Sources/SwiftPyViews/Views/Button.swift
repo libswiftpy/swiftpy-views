@@ -52,7 +52,9 @@ final class Button: ViewRepresentable, Container {
                     }
             }
             .disabled(isProgressing)
+            #if !os(visionOS)
             .buttonStyle(.glass)
+            #endif
             .controlSize(.extraLarge)
         }
     }

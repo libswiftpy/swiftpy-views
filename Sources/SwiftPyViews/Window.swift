@@ -42,11 +42,11 @@ class Window: Identifiable {
         }
 
         let defaults = EnvironmentValues()
-        if defaults.supportsMultipleWindows {
+        //if defaults.supportsMultipleWindows {
             defaults.openWindow(value: id)
             Window.presentedWindows.insert(id)
             return
-        }
+        //}
         
         #if canImport(UIKit)
         let window = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }

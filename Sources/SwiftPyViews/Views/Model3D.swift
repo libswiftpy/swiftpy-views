@@ -30,6 +30,9 @@ final class Model3D: ViewRepresentable {
         @State private var height: CGFloat?
         
         var body: some View {
+            #if os(visionOS)
+            RealityKit.Model3D(url: model.path.url)
+            #else
             RealityView { content in
                 do {
                     let url = URL(fileURLWithPath: model.path.url.path)
@@ -46,6 +49,7 @@ final class Model3D: ViewRepresentable {
                 self.height = newValue
             }
             .frame(minHeight: height)
+            #endif
         }
     }
 }
