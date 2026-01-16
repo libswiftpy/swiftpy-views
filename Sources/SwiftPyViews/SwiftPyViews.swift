@@ -32,7 +32,7 @@ public struct PythonWindows: Scene {
                 PyAPI.return(PaddingModifier().apply(argv))
             }
             
-            view?.bind("align(self, aligment: str)") { _, argv in
+            view?.bind("align(self, aligment: str) -> View") { _, argv in
                 PyAPI.returnOrThrow {
                     let aligment = try String.cast(argv, 1)
                     return AlignmentModifier(
@@ -40,6 +40,12 @@ public struct PythonWindows: Scene {
                         vertical: Alignment.vertical(aligment)
                     )
                     .apply(argv)
+                }
+            }
+            
+            view?.bind("overlay(self, views: View) -> View") { _, argv in
+                PyAPI.returnOrThrow {
+                    try ZStack.pyType.object?.call([argv, argv?[1]])
                 }
             }
         }
