@@ -8,7 +8,7 @@ import HighlightSwift
 
 public struct PythonWindows: Scene {
     public init() {
-        Interpreter.bindModule("views", [
+        PyBind.module("views", [
             Alignment.self,
 
             PythonView.self,
@@ -50,11 +50,11 @@ public struct PythonWindows: Scene {
             }
         }
 
-        Interpreter.bindModule("audio", [
+        PyBind.module("audio", [
             AudioPlayer.self,
         ])
         
-        Interpreter.bindModule("music", [
+        PyBind.module("music", [
             MusicPlayer.self,
             Song.self,
         ])

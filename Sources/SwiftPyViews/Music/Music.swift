@@ -27,23 +27,9 @@ final class Music {
     }
 }
 
-/// The repeat modes for the music player.
-@Scriptable
-@MainActor
-final class RepeatMode: WrappedObject<ApplicationMusicPlayer.RepeatMode> {
-    /// The music player is repeating the currently playing entry.
-    static let ONE = RepeatMode(.one)
-
-    /// The music player is repeating the currently playing collection, such as an album or a playlist.
-    static let ALL = RepeatMode(.all)
-}
-
 /// An object the app uses to play music.
 @Scriptable
 final class MusicPlayer: WrappedObject<ApplicationMusicPlayer.Queue> {
-    /// The current repeat mode of the music player.
-    var repeatMode: RepeatMode?
-
     /// Creates a player with a queue of songs.
     init(songs: [Song]) {
         let queue = ApplicationMusicPlayer.Queue(for: songs.map(\.value))
@@ -53,7 +39,6 @@ final class MusicPlayer: WrappedObject<ApplicationMusicPlayer.Queue> {
     /// Initiates playback from the current queue.
     func play() async throws {
         ApplicationMusicPlayer.shared.queue = value
-        ApplicationMusicPlayer.shared.state.repeatMode = repeatMode?.value
         try await ApplicationMusicPlayer.shared.prepareToPlay()
         try await ApplicationMusicPlayer.shared.play()
     }
