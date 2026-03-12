@@ -48,6 +48,12 @@ public struct PythonWindows: Scene {
                     try ZStack.pyType.object?.call([argv, argv?[1]])
                 }
             }
+            
+            view?.bind("closable(self) -> View") { _, argv in
+                PyAPI.returnOrThrow {
+                    ClosableModifier().apply(argv)
+                }
+            }
         }
 
         PyBind.module("audio", [

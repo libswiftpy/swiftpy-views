@@ -21,6 +21,7 @@ class Window: Identifiable {
 
     typealias object = PyAPI.Reference
 
+    var isFullscreen: Bool = false
     var view: ViewRepresentation?
 
     internal let id: ID
@@ -57,8 +58,10 @@ class Window: Identifiable {
             topController = presented
         }
 
-        let vc = UIHostingController(rootView: view)
-
+        let navigation = NavigationStack { view }
+        let vc = UIHostingController(rootView: navigation)
+        vc.modalPresentationStyle = isFullscreen ? .fullScreen : .pageSheet
+        
         let id = id
         topController?.present(vc, animated: true) {
             Window.presentedWindows.remove(id)
