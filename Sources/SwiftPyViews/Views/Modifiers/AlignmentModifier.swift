@@ -30,7 +30,7 @@ class AlignmentModifier: Modifier {
         var body: some View {
             model.contentView.frame(
                 maxWidth: model.horizontal == nil ? nil : .infinity,
-                maxHeight: model.horizontal == nil ? nil : .infinity,
+                maxHeight: model.vertical == nil ? nil : .infinity,
                 alignment: SwiftUI.Alignment(
                     horizontal: model.horizontal ?? .center,
                     vertical: model.vertical ?? .center
