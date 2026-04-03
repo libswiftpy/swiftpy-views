@@ -25,7 +25,7 @@ protocol Container: HasSlots, ViewRepresentable where Slot == ContainerSlot {}
 extension Container where Self: PythonBindable {
     private var views: [AnyView] {
         var views: [AnyView] = []
-        try? self[.content]?.toStack.iterate { obj in
+        try? self[.content]?.retained.iterate { obj in
             guard let reference = obj.reference else { return }
 
             if let view = reference.view?.view {
@@ -63,7 +63,7 @@ extension Container where Self: PythonBindable {
             }
         }
 
-        let listRetained = list.toStack
+        let listRetained = list.retained
         arguments[Slot.content] = listRetained.reference
     }
 }

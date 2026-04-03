@@ -14,7 +14,7 @@ final class Button: ViewRepresentable, Container {
     init(arguments: PyArguments) {
         if arguments.count > 1 {
             if let text = String(arguments[1]) {
-                let textObj = Text(text: text).toStack
+                let textObj = Text(text: text).retained
                 arguments[Slot.content] = textObj.reference
             } else {
                 arguments[Slot.content] = arguments[1]

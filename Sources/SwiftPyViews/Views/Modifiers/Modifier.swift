@@ -11,7 +11,7 @@ protocol Modifier: Container {}
 
 extension Modifier where Self: PythonBindable {
     func apply(_ content: PyAPI.Reference?) -> object? {
-        let modifierRetained = toStack
+        let modifierRetained = retained
         self[.content] = content
         return modifierRetained.reference
     }
