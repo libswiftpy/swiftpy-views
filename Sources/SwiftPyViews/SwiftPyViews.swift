@@ -45,7 +45,7 @@ public struct PythonWindows: Scene {
             
             view?.bind("overlay(self, views: View) -> View") { _, argv in
                 PyAPI.returnOrThrow {
-                    try ZStack.pyType.object?.call([argv, argv?[1]])
+                    try py.tpobject(ZStack.pyType)?.call([argv, argv?[1]])
                 }
             }
             
