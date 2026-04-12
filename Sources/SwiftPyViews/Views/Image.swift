@@ -12,6 +12,8 @@ import ImagePlayground
 /// A view that displays an image.
 @Scriptable(base: .View)
 final class Image: WrappedObject<SwiftUI.Image>, ViewRepresentable {
+    var scaleToFit: Bool = true
+    
     /// Initializes and returns the image object with the specified data.
     init(data: Data) throws {
         guard let image = SwiftUI.Image.from(data) else {
@@ -26,9 +28,13 @@ final class Image: WrappedObject<SwiftUI.Image>, ViewRepresentable {
     }
 
     var view: some View {
-        value
-            .resizable()
-            .scaledToFit()
+        if scaleToFit {
+            value
+                .resizable()
+                .scaledToFit()
+        } else {
+            value
+        }
     }
     
     static func create(text: String) async throws -> Image {
@@ -40,6 +46,13 @@ final class Image: WrappedObject<SwiftUI.Image>, ViewRepresentable {
         }
 
         throw PythonError.RuntimeError("Failed to create an image.")
+    }
+
+    /// Creates a system symbol image.
+    static func system(name: String) -> Image {
+        let image = Image(SwiftUI.Image(systemName: name))
+        image.scaleToFit = false
+        return image
     }
 }
 
