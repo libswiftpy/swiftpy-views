@@ -23,7 +23,8 @@ class Window: Identifiable {
 
     var isFullscreen: Bool = false
     var view: ViewRepresentation?
-
+    
+    internal var presentationContext: Any?
     internal let id: ID
     
     init(id: String) {
@@ -67,8 +68,23 @@ class Window: Identifiable {
             Window.presentedWindows.remove(id)
         }
         Window.presentedWindows.insert(id)
+        presentationContext = vc
 
         #endif
+    }
+    
+    func close() {
+        #if canImport(UIKit)
+        if let context = presentationContext as? UIViewController {
+            context.dismiss(animated: true)
+            Window.presentedWindows.remove(id)
+            return
+        }
+        #endif
+
+        let environment = EnvironmentValues()
+        environment.dismissWindow(value: id)
+        Window.presentedWindows.remove(id)
     }
 
     internal static var windows = [ID: Window]()
