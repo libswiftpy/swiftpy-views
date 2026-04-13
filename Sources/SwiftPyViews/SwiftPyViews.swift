@@ -8,31 +8,35 @@ import HighlightSwift
 
 public struct PythonWindows: Scene {
     public init() {
-        PyBind.module("views", [
-            Alignment.self,
-
-            PythonView.self,
-            Button.self,
-            CodeView.self,
-            Text.self,
-            Thumbnail.self,
-            Image.self,
-            Model3D.self,
+        PyBind.module("views") { module in
+            module.classes(
+                Alignment.self,
+                
+                PythonView.self,
+                AnyModifier.self,
+                
+                Button.self,
+                CodeView.self,
+                Text.self,
+                Thumbnail.self,
+                Image.self,
+                Model3D.self,
+                
+                HStack.self,
+                ScrollView.self,
+                VStack.self,
+                ZStack.self,
+                
+                Window.self,
+            )
             
-            HStack.self,
-            ScrollView.self,
-            VStack.self,
-            ZStack.self,
+            let view = PyObject(PyType.View).reference
             
-            Window.self,
-        ]) { module in
-            let view = module?["View"]
-
-            view?.bind("padding(self) -> View") { _, argv in
-                PyAPI.return(PaddingModifier().apply(argv))
+            view.bind("padding(self, value: int | None = None) -> View") { argc, argv in
+                PyBind.function(argc, argv, paddingModifier)
             }
             
-            view?.bind("align(self, aligment: str) -> View") { _, argv in
+            view.bind("align(self, aligment: str) -> View") { _, argv in
                 PyAPI.returnOrThrow {
                     let aligment = try String.cast(argv, 1)
                     return AlignmentModifier(
@@ -43,16 +47,20 @@ public struct PythonWindows: Scene {
                 }
             }
             
-            view?.bind("overlay(self, views: View) -> View") { _, argv in
+            view.bind("overlay(self, views: View) -> View") { _, argv in
                 PyAPI.returnOrThrow {
                     try py.tpobject(ZStack.pyType)?.call([argv, argv?[1]])
                 }
             }
             
-            view?.bind("closable(self) -> View") { _, argv in
+            view.bind("closable(self) -> View") { _, argv in
                 PyAPI.returnOrThrow {
                     ClosableModifier().apply(argv)
                 }
+            }
+            
+            view.bind("font(self, style: str = 'body')") { argc, argv in
+                PyBind.function(argc, argv, fontModifier)
             }
         }
 
@@ -117,4 +125,31 @@ private struct OpenedWindow: View {
     var body: some View {
         window.view?.view
     }
+}
+
+@MainActor
+func paddingModifier(self: PyAPI.Reference, value: Int?) -> PyAPI.Reference? {
+    AnyModifier { content in
+        if let value {
+            content.padding(CGFloat(value))
+        } else {
+            content.padding()
+        }
+    }
+    .apply(self)
+}
+
+@MainActor
+func fontModifier(self: PyAPI.Reference, style: String) -> PyAPI.Reference? {
+    let fontStyle: Font.TextStyle = switch style {
+    case "title": .title
+    case "body": .body
+    case "caption": .caption
+    default: .body
+    }
+    
+    return AnyModifier { content in
+        content.font(.system(fontStyle))
+    }
+    .apply(self)
 }
