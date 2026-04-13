@@ -8,9 +8,27 @@
 import SwiftPy
 import SwiftUI
 
-@Observable
 @Scriptable(base: .View)
+@Observable
 final class Button: ViewRepresentable, Container {
+    internal var updateCount = 0
+    
+    var label: object? {
+        get { self[.content] }
+        set {
+            self[.content] = [newValue]
+            updateCount += 1
+        }
+    }
+
+    var action: object? {
+        get { self[.action] }
+        set {
+            self[.action] = newValue
+            updateCount += 1
+        }
+    }
+
     init(arguments: PyArguments) {
         if arguments.count > 1 {
             if let text = String(arguments[1]) {
@@ -50,6 +68,7 @@ final class Button: ViewRepresentable, Container {
                             ProgressView()
                         }
                     }
+                    .id(model.updateCount)
             }
             .disabled(isProgressing)
             #if !os(visionOS)
