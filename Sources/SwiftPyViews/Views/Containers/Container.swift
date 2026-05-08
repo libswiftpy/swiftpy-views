@@ -23,7 +23,7 @@ extension PyAPI.Reference {
 protocol Container: HasSlots, ViewRepresentable where Slot == ContainerSlot {}
 
 extension Container where Self: PythonBindable {
-    private var views: [AnyView] {
+    var views: [AnyView] {
         var views: [AnyView] = []
         try? self[.content]?.retained.iterate { obj in
             guard let reference = obj.reference else { return }

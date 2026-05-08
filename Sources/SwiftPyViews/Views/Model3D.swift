@@ -8,7 +8,6 @@
 import SwiftPy
 import SwiftUI
 import RealityKit
-import LogTools
 
 @Scriptable(base: .View)
 final class Model3D: ViewRepresentable {
@@ -40,7 +39,7 @@ final class Model3D: ViewRepresentable {
                     content.add(entity)
                     content.cameraTarget = entity
                 } catch {
-                    Logger().critical(error.localizedDescription)
+                    //Logger().critical(error.localizedDescription)
                 }
             }
             .realityViewCameraControls(.orbit)
