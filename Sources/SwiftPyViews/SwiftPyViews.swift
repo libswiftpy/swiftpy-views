@@ -27,6 +27,7 @@ public struct PythonWindows: Scene {
                 VStack.self,
                 ZStack.self,
                 SplitView.self,
+                OutlineGroup.self,
                 
                 Window.self,
             )
