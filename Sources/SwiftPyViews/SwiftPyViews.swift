@@ -28,6 +28,7 @@ public struct PythonWindows: Scene {
                 ZStack.self,
                 SplitView.self,
                 OutlineGroup.self,
+                InspectorModifier.self,
                 
                 Window.self,
             )
@@ -63,6 +64,10 @@ public struct PythonWindows: Scene {
             
             view.bind("font(self, style: str = 'body')") { argc, argv in
                 PyBind.function(argc, argv, fontModifier)
+            }
+            
+            view.bind("inspector(self, content: View) -> View") { argc, argv in
+                PyBind.function(argc, argv, inspector)
             }
         }
 
