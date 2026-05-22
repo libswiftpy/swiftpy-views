@@ -34,10 +34,12 @@ final class InspectorModifier: ViewRepresentable, Container {
                         }
                     }
                     .inspector(isPresented: $model.isPresented) {
-                        views[1]
-                            .presentationDetents([.medium, .large])
-                            .presentationDragIndicator(.visible)
-                            .presentationBackgroundInteraction(.enabled)
+                        Form {
+                            views[1]
+                        }
+                        .presentationDetents([.medium, .large])
+                        .presentationDragIndicator(.visible)
+                        .presentationBackgroundInteraction(.enabled)
                     }
             }
         }

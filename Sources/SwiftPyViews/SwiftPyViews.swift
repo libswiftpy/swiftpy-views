@@ -26,6 +26,7 @@ public struct PythonWindows: Scene {
                 ScrollView.self,
                 VStack.self,
                 ZStack.self,
+                Section.self,
                 SplitView.self,
                 OutlineGroup.self,
                 InspectorModifier.self,

@@ -7,7 +7,6 @@
 
 import SwiftPy
 import SwiftUI
-import pocketpy
 
 /// A view that arranges its subviews in a vertical line.
 @Scriptable(base: .View)
