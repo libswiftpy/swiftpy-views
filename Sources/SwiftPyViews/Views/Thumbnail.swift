@@ -32,7 +32,7 @@ struct ThumbnailView: View {
     @State var image: SwiftUI.Image?
     
     var body: some View {
-        Group {
+        SwiftUI.Group {
             if let image {
                 image.resizable()
                     .scaledToFit()

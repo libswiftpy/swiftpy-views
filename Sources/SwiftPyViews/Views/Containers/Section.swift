@@ -12,7 +12,7 @@ import SwiftUI
 @Scriptable(base: .View)
 @Observable
 final class Section: ViewRepresentable, Container {
-    var title: String
+    var title: String?
 
     internal var contentRevision = 0
 
@@ -24,11 +24,13 @@ final class Section: ViewRepresentable, Container {
         }
     }
 
+    init() {}
+    
     init(title: String) {
         self.title = title
     }
 
-    func __call__(content: object?) -> Section {
+    func __call__(content: [object]) -> Section {
         let temp = TempPyObject(content)
         self.content = temp?.reference
         return self
@@ -38,9 +40,13 @@ final class Section: ViewRepresentable, Container {
         @State var model: Section
 
         var body: some View {
-            SwiftUI.Section(model.title) {
+            SwiftUI.Section {
                 model.contentView
                     .id(model.contentRevision)
+            } header: {
+                if let title = model.title {
+                    SwiftUI.Text(title)
+                }
             }
         }
     }

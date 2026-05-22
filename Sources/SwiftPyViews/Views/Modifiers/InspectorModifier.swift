@@ -17,6 +17,10 @@ final class InspectorModifier: ViewRepresentable, Container {
         try arguments.expectedArgCount(3)
         Self.setContent(arguments)
     }
+    
+    func toggle() {
+        isPresented.toggle()
+    }
 
     struct Content: RepresentationContent {
         @State var model: InspectorModifier

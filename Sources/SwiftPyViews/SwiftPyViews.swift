@@ -21,7 +21,8 @@ public struct PythonWindows: Scene {
                 Thumbnail.self,
                 Image.self,
                 Model3D.self,
-                
+
+                Group.self,
                 HStack.self,
                 ScrollView.self,
                 VStack.self,
@@ -29,7 +30,9 @@ public struct PythonWindows: Scene {
                 Section.self,
                 SplitView.self,
                 OutlineGroup.self,
+
                 InspectorModifier.self,
+                ToolbarModifier.self,
                 
                 Window.self,
             )
@@ -69,6 +72,10 @@ public struct PythonWindows: Scene {
             
             view.bind("inspector(self, content: View) -> View") { argc, argv in
                 PyBind.function(argc, argv, inspector)
+            }
+            
+            view.bind("toolbar(self, content: View) -> View") { argc, argv in
+                PyBind.function(argc, argv, toolbar)
             }
         }
 
