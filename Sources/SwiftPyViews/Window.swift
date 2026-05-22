@@ -22,7 +22,7 @@ class Window: Identifiable {
     typealias object = PyAPI.Reference
 
     var isFullscreen: Bool = false
-    var view: ViewRepresentation?
+    var view: AnyView?
     
     internal var presentationContext: Any?
     internal let id: ID
@@ -39,7 +39,7 @@ class Window: Identifiable {
     }
 
     func open() throws {
-        guard let view = view?.view else {
+        guard let view else {
             throw PythonError.AssertionError("No view to present.")
         }
 

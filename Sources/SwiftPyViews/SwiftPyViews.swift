@@ -104,7 +104,7 @@ public struct PythonWindows: Scene {
                 let doc = try String.cast(module?["__doc__"])
                 
                 let window = Window(id: "help[\(name)]")
-                window.view = ViewRepresentation {
+                window.view = AnyView {
                     GeometryReader { geo in
                         SwiftUI.ScrollView([.horizontal, .vertical]) {
                             CodeText(doc).highlightLanguage(.python)
@@ -138,7 +138,7 @@ private struct OpenedWindow: View {
     @State var window: Window
     
     var body: some View {
-        window.view?.view
+        window.view
     }
 }
 

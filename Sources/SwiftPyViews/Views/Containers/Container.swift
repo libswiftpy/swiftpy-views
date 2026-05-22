@@ -16,7 +16,7 @@ enum ContainerSlot: Int32, CaseIterable {
 @MainActor
 extension PyAPI.Reference {
     var anyView: AnyView? {
-        view?.view
+        view
     }
 }
 
@@ -28,7 +28,7 @@ extension Container where Self: PythonBindable {
         try? self[.content]?.retained.iterate { obj in
             guard let reference = obj.reference else { return }
 
-            if let view = reference.view?.view {
+            if let view = reference.view {
                 views.append(view)
             }
             
@@ -40,7 +40,7 @@ extension Container where Self: PythonBindable {
     }
     
     var contentView: AnyView {
-        if let view = self[.content]?.view?.view {
+        if let view = self[.content]?.view {
             return view
         }
 
