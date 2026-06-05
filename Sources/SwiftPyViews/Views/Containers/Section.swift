@@ -16,7 +16,7 @@ final class Section: ViewRepresentable {
 
     internal var contentRevision = 0
 
-    var content: PyObject? {
+    var content: Views? {
         didSet { contentRevision += 1 }
     }
 
@@ -26,8 +26,8 @@ final class Section: ViewRepresentable {
         self.title = title
     }
 
-    func __call__(content: [PyObject]) -> Section {
-        self.content = py.retain(content)
+    func __call__(content: Unpack) -> Section {
+        self.content = Views(objects: content.values)
         return self
     }
 
@@ -36,7 +36,7 @@ final class Section: ViewRepresentable {
 
         var body: some View {
             SwiftUI.Section {
-                model.content?.asView
+                model.content?.view
                     .id(model.contentRevision)
             } header: {
                 if let title = model.title {
