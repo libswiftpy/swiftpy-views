@@ -10,22 +10,23 @@ import SwiftUI
 
 @Observable
 @Scriptable(base: .View)
-class AlignmentModifier {
-    var content: PyObject?
+class AlignmentModifier: ViewRepresentable {
+    var content: AnyView
     
     internal var horizontal: HorizontalAlignment?
     internal var vertical: VerticalAlignment?
     
-    internal init(horizontal: HorizontalAlignment? = nil, vertical: VerticalAlignment? = nil) {
-        self.horizontal = horizontal
-        self.vertical = vertical
+    init(content: AnyView, alignment: String) {
+        self.content = content
+        self.horizontal = Alignment.horizontal(alignment)
+        self.vertical = Alignment.vertical(alignment)
     }
     
     struct Content: RepresentationContent {
         @State var model: AlignmentModifier
 
         var body: some View {
-            model.content?.asView.frame(
+            model.content.frame(
                 maxWidth: model.horizontal == nil ? nil : .infinity,
                 maxHeight: model.vertical == nil ? nil : .infinity,
                 alignment: SwiftUI.Alignment(

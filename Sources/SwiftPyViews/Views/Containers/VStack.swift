@@ -8,21 +8,23 @@
 import SwiftPy
 import SwiftUI
 
-///// A view that arranges its subviews in a vertical line.
-//@Scriptable(base: .View)
-//@Observable
-//final class VStack: ViewRepresentable, Container {
-//    init(arguments: PyArguments) {
-//        Self.setContent(arguments)
-//    }
-//
-//    struct Content: RepresentationContent {
-//        @State var model: VStack
-//        
-//        var body: some View {
-//            SwiftUI.VStack {
-//                model.contentView
-//            }
-//        }
-//    }
-//}
+/// A view that arranges its subviews in a vertical line.
+@Scriptable(base: .View)
+@Observable
+final class VStack: ViewRepresentable {
+    var views: Views
+    
+    init(views: Unpack) {
+        self.views = Views(objects: views.values)
+    }
+
+    struct Content: RepresentationContent {
+        @State var model: VStack
+        
+        var body: some View {
+            SwiftUI.VStack {
+                model.views.view
+            }
+        }
+    }
+}

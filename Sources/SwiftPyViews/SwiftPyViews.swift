@@ -22,44 +22,37 @@ public struct PythonWindows: Scene {
 
                 Group.self,
                 HStack.self,
-//                ScrollView.self,
-//                VStack.self,
-//                ZStack.self,
+                ScrollView.self,
+                VStack.self,
+                ZStack.self,
                 Section.self,
-//                SplitView.self,
-//                OutlineGroup.self,
+                SplitView.self,
+                OutlineGroup.self,
 
-//                InspectorModifier.self,
-//                ToolbarModifier.self,
+                InspectorModifier.self,
+                ToolbarModifier.self,
+                AlignmentModifier.self,
                 
                 Window.self,
             )
             
             let view = PyObject(AnyView.pyTypeObject)!
             
-//            view.def("padding(self, value: int | None = None) -> View") { argc, argv in
-//                PyBind.function(argc, argv) { (view: PyObject, value: Int?) in
-//                    let view = view.asView?.padding(value.map(CGFloat.init))
-//                    return AnyView(erasing: view)
-//                }
-//            }
+            view.def("padding(self, value: int | None = None) -> View") { argc, argv in
+                PyBind.function(argc, argv, paddingModifier)
+            }
             
-//            view.def("align(self, aligment: str) -> View") { _, argv in
-//                PyAPI.return {
-//                    let aligment = try String.cast(argv, 1)
-//                    return AlignmentModifier(
-//                        horizontal: Alignment.horizontal(aligment),
-//                        vertical: Alignment.vertical(aligment)
-//                    )
-//                    .apply(argv)
-//                }
-//            }
+            view.def("align(self, aligment: str) -> View") { argc, argv in
+                PyBind.function(argc, argv, AlignmentModifier.init)
+            }
             
-//            view.def("overlay(self, views: View) -> View") { _, argv in
-//                PyAPI.return {
-//                    try py.retain(py.tpobject(ZStack.pyType))?(argv, argv?[1])
-//                }
-//            }
+            view.def("overlay(self, *views) -> View") { argc, argv in
+                PyBind.function(argc, argv) { (view: PyObject, content: PyTuple) in
+                    var views = content
+                    views.values.insert(view, at: 0)
+                    return ZStack(views: views)
+                }
+            }
             
             view.def("closable(self) -> View") { argc, argv in
                 PyBind.function(argc, argv) { (view: AnyView) in
@@ -67,17 +60,17 @@ public struct PythonWindows: Scene {
                 }
             }
             
-//            view.def("font(self, style: str = 'body')") { argc, argv in
-//                PyBind.function(argc, argv, fontModifier)
-//            }
+            view.def("font(self, style: str = 'body')") { argc, argv in
+                PyBind.function(argc, argv, fontModifier)
+            }
             
-//            view.def("inspector(self, content: View) -> View") { argc, argv in
-//                PyBind.function(argc, argv, inspector)
-//            }
-            
-//            view.def("toolbar(self, content: View) -> View") { argc, argv in
-//                PyBind.function(argc, argv, toolbar)
-//            }
+            view.def("inspector(self, content: View) -> View") { argc, argv in
+                PyBind.function(argc, argv, InspectorModifier.init)
+            }
+
+            view.def("toolbar(self, content: View) -> View") { argc, argv in
+                PyBind.function(argc, argv, ToolbarModifier.init)
+            }
         }
 
         PyBind.module("audio") { module in
@@ -143,29 +136,22 @@ private struct OpenedWindow: View {
     }
 }
 
-//@MainActor
-//func paddingModifier(self: PyAPI.Reference, value: Int?) -> PyObject? {
-//    AnyModifier { content in
-//        if let value {
-//            content.padding(CGFloat(value))
-//        } else {
-//            content.padding()
-//        }
-//    }
-//    .apply(self)
-//}
+@MainActor
+func paddingModifier(self: AnyView, value: Int?) -> AnyView {
+    if let value {
+        AnyView(erasing: self.padding(CGFloat(value)))
+    } else {
+        AnyView(erasing: self.padding())
+    }
+}
 
-//@MainActor
-//func fontModifier(self: PyAPI.Reference, style: String) -> PyObject? {
-//    let fontStyle: Font.TextStyle = switch style {
-//    case "title": .title
-//    case "body": .body
-//    case "caption": .caption
-//    default: .body
-//    }
-//    
-//    return AnyModifier { content in
-//        content.font(.system(fontStyle))
-//    }
-//    .apply(self)
-//}
+@MainActor
+func fontModifier(self: AnyView, style: String) -> AnyView {
+    let fontStyle: Font.TextStyle = switch style {
+    case "title": .title
+    case "body": .body
+    case "caption": .caption
+    default: .body
+    }
+    return AnyView(erasing: self.font(.system(fontStyle)))
+}

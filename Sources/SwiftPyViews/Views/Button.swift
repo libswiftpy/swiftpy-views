@@ -24,18 +24,12 @@ final class Button: ViewRepresentable {
     internal var contentRevision = 0
     
     /// A view that describes the purpose of the button's action.
-    var label: PyObject? {
+    var label: PyObject {
         didSet { contentRevision += 1 }
     }
 
     /// The action to perform when the user triggers the button.
     var action: PyObject?
-
-    /// Creates a button that generates its label from a string.
-    init(_ title: String, action: PyObject? = nil) {
-        self.label = py.retain(Text(text: title))
-        self.action = action
-    }
     
     /// Creates a button that displays a custom label.
     init(label: PyObject, action: PyObject? = nil) {
@@ -60,7 +54,7 @@ final class Button: ViewRepresentable {
                     }
                 }
             } label: {
-                model.label?.asView
+                model.label.asView
                     .opacity(isProgressing ? 0 : 1)
                     .overlay {
                         if isProgressing {
@@ -78,6 +72,6 @@ final class Button: ViewRepresentable {
     }
 }
 
-#Preview {
-    Button("Test").representation
+#Preview {    
+    Button(py.retain("text"))?.view
 }
