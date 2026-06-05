@@ -22,7 +22,7 @@ class Window: Identifiable {
     typealias object = PyAPI.Reference
 
     var isFullscreen: Bool = false
-    var view: AnyView?
+    var content: AnyView?
     
     internal var presentationContext: Any?
     internal let id: ID
@@ -32,14 +32,14 @@ class Window: Identifiable {
         Window.windows[self.id] = self
     }
 
-    init(view: object) {
-        id = ID(id: String(Int(bitPattern: view)))
-        self.view = view.view
+    init(view: PyObject) {
+        id = ID(id: String(Int(bitPattern: view.reference)))
+        self.content = view.asView
         Window.windows[id] = self
     }
 
     func open() throws {
-        guard let view else {
+        guard let content else {
             throw PythonError.AssertionError("No view to present.")
         }
 
@@ -59,7 +59,7 @@ class Window: Identifiable {
             topController = presented
         }
 
-        let navigation = NavigationStack { view }
+        let navigation = NavigationStack { content }
         let vc = UIHostingController(rootView: navigation)
         vc.modalPresentationStyle = isFullscreen ? .fullScreen : .pageSheet
         
@@ -89,10 +89,4 @@ class Window: Identifiable {
 
     internal static var windows = [ID: Window]()
     internal static var presentedWindows = Set<ID>()
-}
-
-extension Window: HasSlots {
-    enum Slot: Int32, CaseIterable {
-        case content
-    }
 }

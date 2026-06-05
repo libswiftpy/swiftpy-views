@@ -3,17 +3,15 @@
 
 import SwiftUI
 import SwiftPy
-import pocketpy
 import HighlightSwift
 
 public struct PythonWindows: Scene {
     public init() {
         PyBind.module("views") { module in
             module.classes(
-                Alignment.self,
+                Views.self,
                 
-                PythonView.self,
-                AnyModifier.self,
+                Alignment.self,
                 
                 Button.self,
                 CodeView.self,
@@ -24,77 +22,82 @@ public struct PythonWindows: Scene {
 
                 Group.self,
                 HStack.self,
-                ScrollView.self,
-                VStack.self,
-                ZStack.self,
+//                ScrollView.self,
+//                VStack.self,
+//                ZStack.self,
                 Section.self,
-                SplitView.self,
-                OutlineGroup.self,
+//                SplitView.self,
+//                OutlineGroup.self,
 
-                InspectorModifier.self,
-                ToolbarModifier.self,
+//                InspectorModifier.self,
+//                ToolbarModifier.self,
                 
                 Window.self,
             )
             
-            let view = PyObject(PyType.View).reference
+            let view = PyObject(AnyView.pyTypeObject)!
             
-            view.bind("padding(self, value: int | None = None) -> View") { argc, argv in
-                PyBind.function(argc, argv, paddingModifier)
-            }
+//            view.def("padding(self, value: int | None = None) -> View") { argc, argv in
+//                PyBind.function(argc, argv) { (view: PyObject, value: Int?) in
+//                    let view = view.asView?.padding(value.map(CGFloat.init))
+//                    return AnyView(erasing: view)
+//                }
+//            }
             
-            view.bind("align(self, aligment: str) -> View") { _, argv in
-                PyAPI.returnOrThrow {
-                    let aligment = try String.cast(argv, 1)
-                    return AlignmentModifier(
-                        horizontal: Alignment.horizontal(aligment),
-                        vertical: Alignment.vertical(aligment)
-                    )
-                    .apply(argv)
+//            view.def("align(self, aligment: str) -> View") { _, argv in
+//                PyAPI.return {
+//                    let aligment = try String.cast(argv, 1)
+//                    return AlignmentModifier(
+//                        horizontal: Alignment.horizontal(aligment),
+//                        vertical: Alignment.vertical(aligment)
+//                    )
+//                    .apply(argv)
+//                }
+//            }
+            
+//            view.def("overlay(self, views: View) -> View") { _, argv in
+//                PyAPI.return {
+//                    try py.retain(py.tpobject(ZStack.pyType))?(argv, argv?[1])
+//                }
+//            }
+            
+            view.def("closable(self) -> View") { argc, argv in
+                PyBind.function(argc, argv) { (view: AnyView) in
+                    AnyView(view.modifier(ToolbarCloseModifier()))
                 }
             }
             
-            view.bind("overlay(self, views: View) -> View") { _, argv in
-                PyAPI.returnOrThrow {
-                    try py.tpobject(ZStack.pyType)?.call([argv, argv?[1]])
-                }
-            }
+//            view.def("font(self, style: str = 'body')") { argc, argv in
+//                PyBind.function(argc, argv, fontModifier)
+//            }
             
-            view.bind("closable(self) -> View") { _, argv in
-                PyAPI.returnOrThrow {
-                    ClosableModifier().apply(argv)
-                }
-            }
+//            view.def("inspector(self, content: View) -> View") { argc, argv in
+//                PyBind.function(argc, argv, inspector)
+//            }
             
-            view.bind("font(self, style: str = 'body')") { argc, argv in
-                PyBind.function(argc, argv, fontModifier)
-            }
-            
-            view.bind("inspector(self, content: View) -> View") { argc, argv in
-                PyBind.function(argc, argv, inspector)
-            }
-            
-            view.bind("toolbar(self, content: View) -> View") { argc, argv in
-                PyBind.function(argc, argv, toolbar)
-            }
+//            view.def("toolbar(self, content: View) -> View") { argc, argv in
+//                PyBind.function(argc, argv, toolbar)
+//            }
         }
 
-        PyBind.module("audio", [
-            AudioPlayer.self,
-        ])
+        PyBind.module("audio") { module in
+            module.class(AudioPlayer.self)
+        }
         
-        PyBind.module("music", [
-            MusicPlayer.self,
-            Song.self,
-        ])
+        PyBind.module("music") { module in
+            module.classes(
+                MusicPlayer.self,
+                Song.self,
+            )
+        }
         
-        Interpreter.main.bind("help(module: object) -> None") {
+        py.main.def("help(module: object) -> None") {
             argc,
             argv in
-            PyAPI.returnOrThrow {
+            PyAPI.return {
                 var module = argv
                 if let moduleName = String(argv) {
-                    module = Interpreter.module(moduleName)
+                    module = py.module(moduleName)?.reference
                     guard module != nil else {
                         throw PythonError.ImportError("No module named \(moduleName)")
                     }
@@ -104,20 +107,18 @@ public struct PythonWindows: Scene {
                 let doc = try String.cast(module?["__doc__"])
                 
                 let window = Window(id: "help[\(name)]")
-                window.view = AnyView {
-                    GeometryReader { geo in
-                        SwiftUI.ScrollView([.horizontal, .vertical]) {
-                            CodeText(doc).highlightLanguage(.python)
-                                .padding(4)
-                                .frame(
-                                    minWidth: geo.size.width,
-                                    minHeight: geo.size.height,
-                                    alignment: .topLeading
-                                )
-                        }
+                let content = GeometryReader { geo in
+                    SwiftUI.ScrollView([.horizontal, .vertical]) {
+                        CodeText(doc).highlightLanguage(.python)
+                            .padding(4)
+                            .frame(
+                                minWidth: geo.size.width,
+                                minHeight: geo.size.height,
+                                alignment: .topLeading
+                            )
                     }
-                    
                 }
+                window.content = AnyView(erasing: content)
                 try window.open()
                 return
             }
@@ -138,33 +139,33 @@ private struct OpenedWindow: View {
     @State var window: Window
     
     var body: some View {
-        window.view
+        window.content
     }
 }
 
-@MainActor
-func paddingModifier(self: PyAPI.Reference, value: Int?) -> PyAPI.Reference? {
-    AnyModifier { content in
-        if let value {
-            content.padding(CGFloat(value))
-        } else {
-            content.padding()
-        }
-    }
-    .apply(self)
-}
+//@MainActor
+//func paddingModifier(self: PyAPI.Reference, value: Int?) -> PyObject? {
+//    AnyModifier { content in
+//        if let value {
+//            content.padding(CGFloat(value))
+//        } else {
+//            content.padding()
+//        }
+//    }
+//    .apply(self)
+//}
 
-@MainActor
-func fontModifier(self: PyAPI.Reference, style: String) -> PyAPI.Reference? {
-    let fontStyle: Font.TextStyle = switch style {
-    case "title": .title
-    case "body": .body
-    case "caption": .caption
-    default: .body
-    }
-    
-    return AnyModifier { content in
-        content.font(.system(fontStyle))
-    }
-    .apply(self)
-}
+//@MainActor
+//func fontModifier(self: PyAPI.Reference, style: String) -> PyObject? {
+//    let fontStyle: Font.TextStyle = switch style {
+//    case "title": .title
+//    case "body": .body
+//    case "caption": .caption
+//    default: .body
+//    }
+//    
+//    return AnyModifier { content in
+//        content.font(.system(fontStyle))
+//    }
+//    .apply(self)
+//}

@@ -8,21 +8,21 @@
 import SwiftPy
 import SwiftUI
 
-@Observable
-@Scriptable(base: .View)
-final class ZStack: ViewRepresentable, Container {
-    init(arguments: PyArguments) {
-        Self.setContent(arguments)
-    }
-
-    struct Content: RepresentationContent {
-        @State var model: ZStack
-        
-        var body: some View {
-            SwiftUI.ZStack {
-                model.contentView
-            }
-        }
-    }
-}
+//@Observable
+//@Scriptable(base: .View)
+//final class ZStack: ViewRepresentable, Container {
+//    init(arguments: PyArguments) {
+//        Self.setContent(arguments)
+//    }
+//
+//    struct Content: RepresentationContent {
+//        @State var model: ZStack
+//        
+//        var body: some View {
+//            SwiftUI.ZStack {
+//                model.contentView
+//            }
+//        }
+//    }
+//}
 

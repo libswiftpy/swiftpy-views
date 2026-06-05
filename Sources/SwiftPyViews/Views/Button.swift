@@ -1,47 +1,46 @@
-//
-//  Button.swift
-//  swiftpy-views
-//
-//  Created by Tibor Felföldy on 2025-11-01.
-//
+////
+////  Button.swift
+////  swiftpy-views
+////
+////  Created by Tibor Felföldy on 2025-11-01.
+////
 
 import SwiftPy
 import SwiftUI
 
+extension PyObject {
+    var asView: AnyView? {
+        if let str = String(self) {
+            return AnyView(erasing: SwiftUI.Text(str))
+        }
+        return reference.view
+    }
+}
+
+/// A control that initiates an action.
 @Scriptable(base: .View)
 @Observable
-final class Button: ViewRepresentable, Container {
-    internal var updateCount = 0
+final class Button: ViewRepresentable {
+    internal var contentRevision = 0
     
-    var label: object? {
-        get { self[.content] }
-        set {
-            self[.content] = [newValue]
-            updateCount += 1
-        }
+    /// A view that describes the purpose of the button's action.
+    var label: PyObject? {
+        didSet { contentRevision += 1 }
     }
 
-    var action: object? {
-        get { self[.action] }
-        set {
-            self[.action] = newValue
-            updateCount += 1
-        }
+    /// The action to perform when the user triggers the button.
+    var action: PyObject?
+
+    /// Creates a button that generates its label from a string.
+    init(_ title: String, action: PyObject? = nil) {
+        self.label = py.retain(Text(text: title))
+        self.action = action
     }
-
-    init(arguments: PyArguments) {
-        if arguments.count > 1 {
-            if let text = String(arguments[1]) {
-                let textObj = Text(text: text).retained
-                arguments[Slot.content] = textObj.reference
-            } else {
-                arguments[Slot.content] = arguments[1]
-            }
-        }
-
-        if arguments.count > 2 {
-            arguments[Slot.action] = arguments[2]
-        }
+    
+    /// Creates a button that displays a custom label.
+    init(label: PyObject, action: PyObject? = nil) {
+        self.label = label
+        self.action = action
     }
 
     struct Content: RepresentationContent {
@@ -51,7 +50,7 @@ final class Button: ViewRepresentable, Container {
 
         var body: some View {
             SwiftUI.Button {
-                let result = try? model[.action]?.call()
+                let result = try? model.action?()
 
                 if let task = AsyncTask(result) {
                     isProgressing = true
@@ -61,14 +60,14 @@ final class Button: ViewRepresentable, Container {
                     }
                 }
             } label: {
-                model.contentView
+                model.label?.asView
                     .opacity(isProgressing ? 0 : 1)
                     .overlay {
                         if isProgressing {
                             ProgressView()
                         }
                     }
-                    .id(model.updateCount)
+                    .id(model.contentRevision)
             }
             .disabled(isProgressing)
             #if !os(visionOS)
@@ -77,4 +76,8 @@ final class Button: ViewRepresentable, Container {
             .controlSize(.extraLarge)
         }
     }
+}
+
+#Preview {
+    Button("Test").representation
 }

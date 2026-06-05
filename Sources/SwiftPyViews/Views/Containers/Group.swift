@@ -10,9 +10,15 @@ import SwiftUI
 
 @Scriptable(base: .View)
 @Observable
-final class Group: ViewRepresentable, Container {
-    init(arguments: PyArguments) {
-        Self.setContent(arguments)
+final class Group: ViewRepresentable {
+    var content: Views
+
+    init(content: Unpack) {
+        self.content = Views(objects: content.values)
+    }
+
+    func append(item: PyObject) {
+        content.append(item)
     }
 
     struct Content: RepresentationContent {
@@ -20,7 +26,7 @@ final class Group: ViewRepresentable, Container {
         
         var body: some View {
             SwiftUI.Group {
-                model.contentView
+                model.content.view
             }
         }
     }

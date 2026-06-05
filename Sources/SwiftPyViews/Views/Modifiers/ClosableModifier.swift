@@ -8,20 +8,11 @@
 import SwiftPy
 import SwiftUI
 
-@Scriptable(base: .View)
-@Observable
-class ClosableModifier: Modifier {
-    var view: some View {
-        ToolbarCloseModifierView(model: self)
-    }
-}
-
-struct ToolbarCloseModifierView: View {
-    @State var model: ClosableModifier
+struct ToolbarCloseModifier: ViewModifier {
     @Environment(\.dismiss) private var dismiss
-    
-    var body: some View {
-        model.contentView.toolbar {
+
+    func body(content: Content) -> some View {
+        content.toolbar {
             SwiftUI.Button(role: .close) {
                 dismiss()
             }

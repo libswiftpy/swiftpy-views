@@ -11,17 +11,13 @@ import SwiftUI
 /// A container view that you can use to add hierarchy.
 @Scriptable(base: .View)
 @Observable
-final class Section: ViewRepresentable, Container {
+final class Section: ViewRepresentable {
     var title: String?
 
     internal var contentRevision = 0
 
-    var content: object? {
-        get { self[.content] }
-        set {
-            self[.content] = newValue
-            contentRevision += 1
-        }
+    var content: PyObject? {
+        didSet { contentRevision += 1 }
     }
 
     init() {}
@@ -30,9 +26,8 @@ final class Section: ViewRepresentable, Container {
         self.title = title
     }
 
-    func __call__(content: [object]) -> Section {
-        let temp = TempPyObject(content)
-        self.content = temp?.reference
+    func __call__(content: [PyObject]) -> Section {
+        self.content = py.retain(content)
         return self
     }
 
@@ -41,7 +36,7 @@ final class Section: ViewRepresentable, Container {
 
         var body: some View {
             SwiftUI.Section {
-                model.contentView
+                model.content?.asView
                     .id(model.contentRevision)
             } header: {
                 if let title = model.title {
@@ -72,10 +67,10 @@ private struct PreviewInspector: View {
     
     var body: some View {
         Form {
-            PyModule.main.section?.reference.anyView
+            py.main.section?.asView
                 //.frame(maxWidth: .infinity)
             
-            PyModule.main.section2?.reference.anyView
+            py.main.section2?.asView
         }
     }
 }

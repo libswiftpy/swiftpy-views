@@ -10,11 +10,8 @@ import SwiftUI
 
 @Observable
 @Scriptable(base: .View)
-class AlignmentModifier: Modifier {
-    var content: object? {
-        get { self[.content] }
-        set { self[.content] = newValue }
-    }
+class AlignmentModifier {
+    var content: PyObject?
     
     internal var horizontal: HorizontalAlignment?
     internal var vertical: VerticalAlignment?
@@ -28,7 +25,7 @@ class AlignmentModifier: Modifier {
         @State var model: AlignmentModifier
 
         var body: some View {
-            model.contentView.frame(
+            model.content?.asView.frame(
                 maxWidth: model.horizontal == nil ? nil : .infinity,
                 maxHeight: model.vertical == nil ? nil : .infinity,
                 alignment: SwiftUI.Alignment(
