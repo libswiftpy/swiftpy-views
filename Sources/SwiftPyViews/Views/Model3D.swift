@@ -14,15 +14,11 @@ final class Model3D: ViewRepresentable {
     typealias Path = SwiftPy.Path
     
     let path: Path
-    
-    init(path: Path) {
-        self.path = path
-    }
-    
+
     init(name: String) throws {
-        self.path = try Path(path: name)
+        self.path = Path(name)
     }
-    
+
     struct Content: RepresentationContent {
         @State var model: Model3D
         
