@@ -31,14 +31,15 @@ public struct PythonWindows: Scene {
                 InspectorModifier.self,
                 ToolbarModifier.self,
                 AlignmentModifier.self,
+                PaddingModifier.self,
                 
                 Window.self,
             )
             
-            let view = PyObject(AnyView.pyTypeObject)!
+            let view = PyObject(.View)
             
             view.def("padding(self, value: int | None = None) -> View") { argc, argv in
-                PyBind.function(argc, argv, paddingModifier)
+                PyBind.function(argc, argv, PaddingModifier.init)
             }
             
             view.def("align(self, aligment: str) -> View") { argc, argv in
@@ -132,15 +133,6 @@ private struct OpenedWindow: View {
     
     var body: some View {
         window.content
-    }
-}
-
-@MainActor
-func paddingModifier(self: AnyView, value: Int?) -> AnyView {
-    if let value {
-        AnyView(erasing: self.padding(CGFloat(value)))
-    } else {
-        AnyView(erasing: self.padding())
     }
 }
 
