@@ -8,22 +8,25 @@
 import SwiftPy
 import SwiftUI
 
-@Observable
 @Scriptable(base: .View)
+@MainActor
+@Observable
 final class Text {
     var text: String
 
     init(text: String) {
         self.text = text
     }
+
+    func body() -> AnyView {
+        AnyView(TextContent(model: self))
+    }
 }
 
-extension Text: ViewRepresentable {
-    struct Content: RepresentationContent {
-        @State var model: Text
+private struct TextContent: View {
+    @State var model: Text
 
-        var body: some View {
-            SwiftUI.Text(model.text)
-        }
+    var body: some View {
+        SwiftUI.Text(model.text)
     }
 }

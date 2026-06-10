@@ -11,7 +11,8 @@ import SwiftUI
 /// A container view that you can use to add hierarchy.
 @Scriptable(base: .View)
 @Observable
-final class Section: ViewRepresentable {
+@MainActor
+final class Section {
     var title: String?
 
     internal var contentRevision = 0
@@ -31,17 +32,21 @@ final class Section: ViewRepresentable {
         return self
     }
 
-    struct Content: RepresentationContent {
-        @State var model: Section
+    func body() -> AnyView {
+        AnyView(SectionContent(model: self))
+    }
+}
 
-        var body: some View {
-            SwiftUI.Section {
-                model.content?.view
-                    .id(model.contentRevision)
-            } header: {
-                if let title = model.title {
-                    SwiftUI.Text(title)
-                }
+private struct SectionContent: View {
+    @State var model: Section
+
+    var body: some View {
+        SwiftUI.Section {
+            model.content?.body()
+                .id(model.contentRevision)
+        } header: {
+            if let title = model.title {
+                SwiftUI.Text(title)
             }
         }
     }

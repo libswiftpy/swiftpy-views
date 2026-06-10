@@ -10,7 +10,8 @@ import SwiftUI
 
 @Scriptable(base: .View)
 @Observable
-final class HStack: ViewRepresentable {
+@MainActor
+final class HStack {
     var spacing: Int?
     var content: Views
 
@@ -32,13 +33,17 @@ final class HStack: ViewRepresentable {
         return self
     }
 
-    struct Content: RepresentationContent {
-        @State var model: HStack
+    func body() -> AnyView {
+        AnyView(HStackContent(model: self))
+    }
+}
 
-        var body: some View {
-            SwiftUI.HStack(spacing: model.spacing.map(CGFloat.init)) {
-                model.content.view
-            }
+private struct HStackContent: View {
+    @State var model: HStack
+
+    var body: some View {
+        SwiftUI.HStack(spacing: model.spacing.map(CGFloat.init)) {
+            model.content.body()
         }
     }
 }

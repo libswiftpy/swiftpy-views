@@ -10,7 +10,9 @@ import SwiftUI
 import RealityKit
 
 @Scriptable(base: .View)
-final class Model3D: ViewRepresentable {
+@MainActor
+@Observable
+final class Model3D {
     typealias Path = SwiftPy.Path
     
     let path: Path
@@ -19,33 +21,36 @@ final class Model3D: ViewRepresentable {
         self.path = Path(name)
     }
 
-    struct Content: RepresentationContent {
-        @State var model: Model3D
-        
-        @State private var height: CGFloat?
-        
-        var body: some View {
-            #if os(visionOS)
-            RealityKit.Model3D(url: model.path.url)
-            #else
-            RealityView { content in
-                do {
-                    let url = URL(fileURLWithPath: model.path.url.path)
-                    let entity = try await Entity(contentsOf: url)
-                    content.add(entity)
-                    content.cameraTarget = entity
-                } catch {
-                    //Logger().critical(error.localizedDescription)
-                }
-            }
-            .realityViewCameraControls(.orbit)
-            .realityViewLayoutBehavior(.centered)
-            .onGeometryChange(for: CGFloat.self, of: \.size.width) { newValue in
-                self.height = newValue
-            }
-            .frame(minHeight: height)
-            #endif
-        }
+    func body() -> AnyView {
+        AnyView(Model3DContent(model: self))
     }
 }
 
+private struct Model3DContent: View {
+    @State var model: Model3D
+
+    @State private var height: CGFloat?
+
+    var body: some View {
+        #if os(visionOS)
+        RealityKit.Model3D(url: model.path.url)
+        #else
+        RealityView { content in
+            do {
+                let url = URL(fileURLWithPath: model.path.url.path)
+                let entity = try await Entity(contentsOf: url)
+                content.add(entity)
+                content.cameraTarget = entity
+            } catch {
+                //Logger().critical(error.localizedDescription)
+            }
+        }
+        .realityViewCameraControls(.orbit)
+        .realityViewLayoutBehavior(.centered)
+        .onGeometryChange(for: CGFloat.self, of: \.size.width) { newValue in
+            self.height = newValue
+        }
+        .frame(minHeight: height)
+        #endif
+    }
+}

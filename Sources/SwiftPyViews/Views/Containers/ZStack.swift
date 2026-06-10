@@ -8,23 +8,27 @@
 import SwiftPy
 import SwiftUI
 
-@Observable
 @Scriptable(base: .View)
-final class ZStack: ViewRepresentable {
+@Observable
+@MainActor
+final class ZStack {
     var views: Views
     
     init(views: Unpack) {
         self.views = Views(objects: views.values)
     }
 
-    struct Content: RepresentationContent {
-        @State var model: ZStack
-        
-        var body: some View {
-            SwiftUI.ZStack {
-                model.views.view
-            }
-        }
+    func body() -> AnyView {
+        AnyView(ZStackContent(model: self))
     }
 }
 
+private struct ZStackContent: View {
+    @State var model: ZStack
+
+    var body: some View {
+        SwiftUI.ZStack {
+            model.views.body()
+        }
+    }
+}

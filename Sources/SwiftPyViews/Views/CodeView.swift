@@ -9,29 +9,34 @@ import SwiftUI
 import SwiftPy
 import HighlightSwift
 
-@Observable
 @Scriptable(base: .View)
-class CodeView: ViewRepresentable {
+@MainActor
+@Observable
+final class CodeView {
     var text: String
-    
+
     init(text: String) {
         self.text = text
     }
-    
-    struct Content: RepresentationContent {
-        @State var model: CodeView
 
-        var body: some View {
-            SwiftUI.ScrollView(.horizontal) {
-                CodeText(model.text)
-                    .highlightLanguage(.python)
-                    .padding(4)
-            }
+    func body() -> AnyView {
+        AnyView(CodeViewContent(model: self))
+    }
+}
+
+private struct CodeViewContent: View {
+    @State var model: CodeView
+
+    var body: some View {
+        SwiftUI.ScrollView(.horizontal) {
+            CodeText(model.text)
+                .highlightLanguage(.python)
+                .padding(4)
         }
     }
 }
 
 #Preview {
     CodeView(text: "print('hello')")
-        .view
+        .body()
 }

@@ -11,7 +11,7 @@ import ImagePlayground
 
 /// A view that displays an image.
 @Scriptable(base: .View)
-final class Image: WrappedObject<SwiftUI.Image>, ViewRepresentable {
+final class Image: WrappedObject<SwiftUI.Image> {
     var scaleToFit: Bool = true
     
     /// Initializes and returns the image object with the specified data.
@@ -27,13 +27,11 @@ final class Image: WrappedObject<SwiftUI.Image>, ViewRepresentable {
         super.init(value)
     }
 
-    var view: some View {
+    func body() -> AnyView {
         if scaleToFit {
-            value
-                .resizable()
-                .scaledToFit()
+            AnyView(value.resizable().scaledToFit())
         } else {
-            value
+            AnyView(value)
         }
     }
     

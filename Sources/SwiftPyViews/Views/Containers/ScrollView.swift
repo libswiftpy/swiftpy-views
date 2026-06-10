@@ -9,20 +9,26 @@ import SwiftPy
 import SwiftUI
 
 @Scriptable(base: .View)
-final class ScrollView: ViewRepresentable {
+@Observable
+@MainActor
+final class ScrollView {
     var views: Views
     
     init(views: Unpack) throws {
         self.views = Views(objects: views.values)
     }
-    
-    struct Content: RepresentationContent {
-        @State var model: ScrollView
-        
-        var body: some View {
-            SwiftUI.ScrollView {
-                model.views.view
-            }
+
+    func body() -> AnyView {
+        AnyView(ScrollViewContent(model: self))
+    }
+}
+
+private struct ScrollViewContent: View {
+    @State var model: ScrollView
+
+    var body: some View {
+        SwiftUI.ScrollView {
+            model.views.body()
         }
     }
 }

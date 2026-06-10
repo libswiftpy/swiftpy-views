@@ -11,7 +11,8 @@ import SwiftUI
 /// A View with a sidebar and a content.
 @Scriptable(base: .View)
 @Observable
-final class SplitView: ViewRepresentable {
+@MainActor
+final class SplitView {
     internal var contentRevision = 0
 
     var sidebar: PyObject? {
@@ -27,15 +28,19 @@ final class SplitView: ViewRepresentable {
         self.detail = detail
     }
 
-    struct Content: RepresentationContent {
-        @State var model: SplitView
+    func body() -> AnyView {
+        AnyView(SplitViewContent(model: self))
+    }
+}
 
-        var body: some View {
-            SwiftUI.NavigationSplitView {
-                model.sidebar?.asView
-            } detail: {
-                model.detail?.asView
-            }
+private struct SplitViewContent: View {
+    @State var model: SplitView
+
+    var body: some View {
+        SwiftUI.NavigationSplitView {
+            model.sidebar?.asView
+        } detail: {
+            model.detail?.asView
         }
     }
 }

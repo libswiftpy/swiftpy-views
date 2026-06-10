@@ -10,7 +10,8 @@ import SwiftPy
 
 @Scriptable(base: .View)
 @Observable
-final class InspectorModifier: ViewRepresentable {
+@MainActor
+final class InspectorModifier {
     var isPresented: Bool = false
 
     var content: AnyView
@@ -25,27 +26,31 @@ final class InspectorModifier: ViewRepresentable {
         isPresented.toggle()
     }
 
-    struct Content: RepresentationContent {
-        @State var model: InspectorModifier
-        
-        var body: some View {
-            model.content
-                .toolbar {
-                    SwiftUI.Button {
-                        model.isPresented.toggle()
-                    } label: {
-                        SwiftUI.Image(systemName: "sidebar.trailing")
-                    }
+    func body() -> AnyView {
+        AnyView(InspectorModifierContent(model: self))
+    }
+}
+
+private struct InspectorModifierContent: View {
+    @State var model: InspectorModifier
+
+    var body: some View {
+        model.content
+            .toolbar {
+                SwiftUI.Button {
+                    model.isPresented.toggle()
+                } label: {
+                    SwiftUI.Image(systemName: "sidebar.trailing")
                 }
-                .inspector(isPresented: $model.isPresented) {
-                    Form {
-                        model.inspector.asView
-                    }
-                    .presentationDetents([.medium, .large])
-                    .presentationDragIndicator(.visible)
-                    .presentationBackgroundInteraction(.enabled)
+            }
+            .inspector(isPresented: $model.isPresented) {
+                Form {
+                    model.inspector.asView
                 }
-        }
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+                .presentationBackgroundInteraction(.enabled)
+            }
     }
 }
 

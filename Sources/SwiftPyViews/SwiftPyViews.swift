@@ -16,7 +16,6 @@ public struct PythonWindows: Scene {
                 Button.self,
                 CodeView.self,
                 Text.self,
-                Thumbnail.self,
                 Image.self,
                 Model3D.self,
 

@@ -8,9 +8,10 @@
 import SwiftPy
 import SwiftUI
 
-@Scriptable
+@Scriptable(base: .View)
+@MainActor
 @Observable
-final class Views: ViewRepresentable {
+final class Views {
     var objects: [PyObject]
 
     init(objects: [PyObject]) {
@@ -33,13 +34,17 @@ final class Views: ViewRepresentable {
         objects.count
     }
     
-    struct Content: RepresentationContent {
-        @State var model: Views
-        
-        var body: some View {
-            ForEach(model.objects.enumerated(), id: \.offset) { _, element in
-                element.asView
-            }
+    func body() -> AnyView {
+        AnyView(ViewsContent(model: self))
+    }
+}
+
+private struct ViewsContent: View {
+    @State var model: Views
+    
+    var body: some View {
+        ForEach(model.objects.enumerated(), id: \.offset) { _, element in
+            element.asView
         }
     }
 }

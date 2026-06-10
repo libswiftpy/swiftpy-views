@@ -9,7 +9,9 @@ import SwiftUI
 import SwiftPy
 
 @Scriptable(base: .View)
-final class ToolbarModifier: ViewRepresentable {
+@Observable
+@MainActor
+final class ToolbarModifier {
     var content: AnyView
     var toolbar: PyObject
     
@@ -17,15 +19,18 @@ final class ToolbarModifier: ViewRepresentable {
         self.content = content
         self.toolbar = toolbar
     }
-    
-    struct Content: RepresentationContent {
-        @State var model: ToolbarModifier
-        
-        var body: some View {
-            model.content.toolbar {
-                model.toolbar.asView
-            }
-        }
+
+    func body() -> AnyView {
+        AnyView(ToolbarModifierContent(model: self))
     }
 }
 
+private struct ToolbarModifierContent: View {
+    @State var model: ToolbarModifier
+
+    var body: some View {
+        model.content.toolbar {
+            model.toolbar.asView
+        }
+    }
+}

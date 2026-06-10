@@ -9,7 +9,9 @@ import SwiftUI
 import SwiftPy
 
 @Scriptable(base: .View)
-final class OutlineGroup: ViewRepresentable {
+@Observable
+@MainActor
+final class OutlineGroup {
     @MainActor
     struct Element: Identifiable {
         let id: String
@@ -51,22 +53,26 @@ final class OutlineGroup: ViewRepresentable {
         self.action = action
     }
 
-    struct Content: RepresentationContent {
-        @State var model: OutlineGroup
-        @State private var selection: OutlineGroup.Element.ID?
+    func body() -> AnyView {
+        AnyView(OutlineGroupContent(model: self))
+    }
+}
 
-        var body: some View {
-            List(selection: $selection) {
-                SwiftUI.OutlineGroup(
-                    model.elements,
-                    children: \.children
-                ) { element in
-                    element.view?.tag(element.id)
-                }
+private struct OutlineGroupContent: View {
+    @State var model: OutlineGroup
+    @State private var selection: OutlineGroup.Element.ID?
+
+    var body: some View {
+        List(selection: $selection) {
+            SwiftUI.OutlineGroup(
+                model.elements,
+                children: \.children
+            ) { element in
+                element.view?.tag(element.id)
             }
-            .onChange(of: selection) { _, newValue in
-                _ = try? model.action(newValue)
-            }
+        }
+        .onChange(of: selection) { _, newValue in
+            _ = try? model.action(newValue)
         }
     }
 }
