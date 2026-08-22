@@ -54,7 +54,7 @@ private struct ButtonContent: View {
             if let task = AsyncTask(result) {
                 isProgressing = true
                 Task {
-                    await task.untilCompletes()
+                    _ = try? await task.untilCompletes()
                     isProgressing = false
                 }
             }

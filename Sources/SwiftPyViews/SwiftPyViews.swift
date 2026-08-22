@@ -5,85 +5,17 @@ import SwiftUI
 import SwiftPy
 import HighlightSwift
 
+@MainActor
+public func initialize() {
+    PyBind.module("views") { module in
+        module.class(Markdown.self)
+    }
+}
+
 public struct PythonWindows: Scene {
     public init() {
-        PyBind.module("views") { module in
-            module.classes(
-                Views.self,
-                
-                Alignment.self,
-                
-                Button.self,
-                CodeView.self,
-                Text.self,
-                Image.self,
-                Model3D.self,
+        SwiftPyViews.initialize()
 
-                Group.self,
-                HStack.self,
-                ScrollView.self,
-                VStack.self,
-                ZStack.self,
-                Section.self,
-                SplitView.self,
-                OutlineGroup.self,
-
-                InspectorModifier.self,
-                ToolbarModifier.self,
-                AlignmentModifier.self,
-                PaddingModifier.self,
-                
-                Window.self,
-            )
-            
-            let view = PyObject(.View)
-            
-            view.def("padding(self, value: int | None = None) -> View") { argc, argv in
-                PyBind.function(argc, argv, PaddingModifier.init)
-            }
-            
-            view.def("align(self, aligment: str) -> View") { argc, argv in
-                PyBind.function(argc, argv, AlignmentModifier.init)
-            }
-            
-            view.def("overlay(self, *views) -> View") { argc, argv in
-                PyBind.function(argc, argv) { (view: PyObject, content: PyTuple) in
-                    var views = content
-                    views.values.insert(view, at: 0)
-                    return ZStack(views: views)
-                }
-            }
-            
-            view.def("closable(self) -> View") { argc, argv in
-                PyBind.function(argc, argv) { (view: AnyView) in
-                    AnyView(view.modifier(ToolbarCloseModifier()))
-                }
-            }
-            
-            view.def("font(self, style: str = 'body')") { argc, argv in
-                PyBind.function(argc, argv, fontModifier)
-            }
-            
-            view.def("inspector(self, content: View) -> View") { argc, argv in
-                PyBind.function(argc, argv, InspectorModifier.init)
-            }
-
-            view.def("toolbar(self, content: View) -> View") { argc, argv in
-                PyBind.function(argc, argv, ToolbarModifier.init)
-            }
-        }
-
-        PyBind.module("audio") { module in
-            module.class(AudioPlayer.self)
-        }
-        
-        PyBind.module("music") { module in
-            module.classes(
-                MusicPlayer.self,
-                Song.self,
-            )
-        }
-        
         py.main.def("help(module: object) -> None") {
             argc,
             argv in
@@ -134,15 +66,4 @@ private struct OpenedWindow: View {
     var body: some View {
         window.content
     }
-}
-
-@MainActor
-func fontModifier(self: AnyView, style: String) -> AnyView {
-    let fontStyle: Font.TextStyle = switch style {
-    case "title": .title
-    case "body": .body
-    case "caption": .caption
-    default: .body
-    }
-    return AnyView(erasing: self.font(.system(fontStyle)))
 }
