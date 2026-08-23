@@ -45,31 +45,88 @@ public struct MarkdownContent: View {
     }
 
     public var body: some View {
-        MarkdownView(model.text)
-            .padding(.top, HeadingTopPadding.large, for: .h1, .h2, .h3)
-            .padding(.top, HeadingTopPadding.small, for: .h4, .h5, .h6)
-            .padding(.top, Optional(-trimmedLeadingHeadingPadding))
-            .markdownCodeBlockStyle(SwiftPyCodeBlockStyle())
-            .markdownElementRenderer(.image(SymbolImageRenderer(), urlScheme: "sf"))
+        SwiftUI.VStack(alignment: .leading, spacing: 0) {
+            ForEach(segments) { segment in
+                renderedMarkdown(segment.text)
+                    .padding(.top, segment.topPadding)
+            }
+        }
+        .markdownCodeBlockStyle(SwiftPyCodeBlockStyle())
+        .markdownElementRenderer(.image(SymbolImageRenderer(), urlScheme: "sf"))
     }
 
-    private var trimmedLeadingHeadingPadding: CGFloat {
-        trimsLeadingHeadingPadding ? leadingHeadingTopPadding : 0
+    // `MarkdownText` keeps a paragraph as one run of text, so a custom inline
+    // element flows with the words around it. `MarkdownView` builds a paragraph
+    // out of separate views, which puts every one of them on its own line.
+    @ViewBuilder
+    private func renderedMarkdown(_ text: String) -> some View {
+        #if os(iOS) || os(macOS)
+        MarkdownText(text)
+        #else
+        // Zeroed so both renderers take their heading spacing from `segments`.
+        MarkdownView(text)
+            .padding(EdgeInsets(), for: .h1, .h2, .h3, .h4, .h5, .h6)
+        #endif
     }
 
-    private var leadingHeadingTopPadding: CGFloat {
-        let firstLine = model.text
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .prefix { !$0.isNewline }
+    private struct Segment: Identifiable {
+        let id: Int
+        let text: String
+        let topPadding: CGFloat
+    }
 
-        let level = firstLine.prefix { $0 == "#" }.count
+    /// The markdown cut into a piece per heading, so each heading can be given
+    /// the space above it that neither renderer provides. Paragraphs are never
+    /// cut, which is what keeps an inline element flowing with its words.
+    private var segments: [Segment] {
+        var segments = [Segment]()
+        var lines = [Substring]()
+        var topPadding: CGFloat = 0
+        var isInFence = false
 
-        guard (1...6).contains(level),
-              firstLine.dropFirst(level).first == " " else {
-            return 0
+        func endSegment() {
+            guard !lines.isEmpty else { return }
+
+            segments.append(
+                Segment(
+                    id: segments.count,
+                    text: lines.joined(separator: "\n"),
+                    // Nothing sits above the first piece to separate it from.
+                    topPadding: segments.isEmpty && trimsLeadingHeadingPadding ? 0 : topPadding
+                )
+            )
+            lines = []
         }
 
-        return level <= 3 ? HeadingTopPadding.large : HeadingTopPadding.small
+        for line in model.text.split(separator: "\n", omittingEmptySubsequences: false) {
+            // A `#` inside a fence is code, not a heading.
+            if line.trimmingCharacters(in: .whitespaces).hasPrefix("```") {
+                isInFence.toggle()
+            }
+
+            if !isInFence, let level = headingLevel(of: line) {
+                endSegment()
+                topPadding = level <= 3 ? HeadingTopPadding.large : HeadingTopPadding.small
+            }
+
+            lines.append(line)
+        }
+        endSegment()
+
+        return segments
+    }
+
+    /// An indented `#` belongs to whatever contains it, so only a line starting
+    /// with one counts.
+    private func headingLevel(of line: Substring) -> Int? {
+        let level = line.prefix { $0 == "#" }.count
+
+        guard (1...6).contains(level),
+              line.dropFirst(level).first == " " else {
+            return nil
+        }
+
+        return level
     }
 }
 
@@ -84,6 +141,40 @@ public struct MarkdownContent: View {
         print("hello")
         ```
         """))
+        .padding(8)
+    }
+}
+
+#Preview("Heading spacing") {
+    let markdown = Markdown(text: """
+    # Leading heading
+
+    Prose under the leading heading.
+
+    ## Second heading
+
+    Prose that has a heading above it.
+
+    ```python
+    # A comment, not a heading
+    print("hello")
+    ```
+
+    #### Fourth level
+
+    Closing prose.
+    """)
+
+    SwiftUI.ScrollView {
+        SwiftUI.VStack(alignment: .leading, spacing: 0) {
+            MarkdownContent(model: markdown)
+                .environment(\.trimsLeadingHeadingPadding, true)
+
+            Divider()
+
+            MarkdownContent(model: markdown)
+                .environment(\.trimsLeadingHeadingPadding, false)
+        }
         .padding(8)
     }
 }
