@@ -24,10 +24,25 @@ public final class Markdown {
     }
 }
 
+// The raw source rather than what renders from it, which `__repr__` shows too.
+extension Markdown: @MainActor CustomStringConvertible {
+    public var description: String { text }
+}
+
+/// Applied to markdown source before it is parsed, for a host that gives some of
+/// the syntax a meaning of its own.
+public protocol MarkdownSourceFormat: Sendable {
+    func format(_ source: String) -> String
+}
+
 public extension EnvironmentValues {
     /// Whether markdown opening with a heading sits flush with the top of its
     /// container.
     @Entry var trimsLeadingHeadingPadding: Bool = false
+
+    // A type rather than a closure: SwiftUI can't compare closures, so one here
+    // would invalidate every reader on any environment write.
+    @Entry var markdownSourceFormat: (any MarkdownSourceFormat)?
 }
 
 public struct MarkdownContent: View {
@@ -37,6 +52,7 @@ public struct MarkdownContent: View {
     }
 
     @Environment(\.trimsLeadingHeadingPadding) private var trimsLeadingHeadingPadding
+    @Environment(\.markdownSourceFormat) private var markdownSourceFormat
 
     @State private var model: Markdown
 
@@ -60,11 +76,13 @@ public struct MarkdownContent: View {
     // out of separate views, which puts every one of them on its own line.
     @ViewBuilder
     private func renderedMarkdown(_ text: String) -> some View {
+        let source = markdownSourceFormat?.format(text) ?? text
+
         #if os(iOS) || os(macOS)
-        MarkdownText(text)
+        MarkdownText(source)
         #else
         // Zeroed so both renderers take their heading spacing from `segments`.
-        MarkdownView(text)
+        MarkdownView(source)
             .padding(EdgeInsets(), for: .h1, .h2, .h3, .h4, .h5, .h6)
         #endif
     }
