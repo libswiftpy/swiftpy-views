@@ -27,6 +27,7 @@ struct SwiftPyCodeBlockStyle: MarkdownCodeBlockStyle {
 
             SwiftUI.ScrollView(.horizontal) {
                 CodeText(configuration.code)
+                    .highlightMode(.languageAlias(alias(for: configuration.language)))
                     .padding(.horizontal, 8)
             }
             .contentMargins(.trailing, 30, for: .scrollContent)
@@ -42,6 +43,15 @@ struct SwiftPyCodeBlockStyle: MarkdownCodeBlockStyle {
         .overlay(.tertiary, in: .rect(cornerRadius: 16).stroke())
         .frame(maxWidth: .infinity, alignment: .leading)
         .textSelection(.enabled)
+    }
+
+    /// Without an explicit language `CodeText` detects one per block, which
+    /// colors otherwise identical snippets differently. An unsupported or
+    /// missing fence language stays unknown to highlight.js, which leaves the
+    /// code plain rather than coloring it as something it is not.
+    private func alias(for language: String?) -> String {
+        let language = language ?? ""
+        return HighlightLanguage.alias(for: language) ?? language
     }
 }
 

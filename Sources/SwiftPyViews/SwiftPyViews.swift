@@ -7,7 +7,7 @@ import HighlightSwift
 
 @MainActor
 public func initialize() {
-    PyBind.module("views") { module in
+    PyBind.module("views", docs: "Views to build user interfaces with.") { module in
         module.class(Markdown.self)
     }
 }
