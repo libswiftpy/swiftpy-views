@@ -9,16 +9,26 @@ import SwiftUI
 import SwiftPy
 import MarkdownView
 
+/// A view that renders markdown.
 @Scriptable(base: .View)
 @MainActor
 @Observable
 public final class Markdown {
+    /// The markdown source. Assigning re-renders the view.
     public var text: String
 
+    /// Creates a view that renders markdown.
+    ///
+    /// text: The markdown source.
+    ///
+    /// Fenced code blocks are syntax highlighted from their language, and tables
+    /// are rendered. An image whose URL uses the `sf` scheme draws an SF Symbol
+    /// inline, so `![](sf://checkmark.circle)` shows that symbol.
     public init(text: String) {
         self.text = text
     }
 
+    /// The rendered markdown, as the view a host presents.
     public func body() -> AnyView {
         AnyView(MarkdownContent(model: self))
     }
