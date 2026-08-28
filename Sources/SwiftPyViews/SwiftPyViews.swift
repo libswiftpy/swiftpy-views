@@ -19,6 +19,14 @@ public struct PythonWindows: Scene {
         SwiftPyViews.initialize()
     }
 
+    /// Presents SwiftUI content using the same backing window as Python `Window`.
+    @MainActor
+    public static func present(title: String? = nil, content: AnyView) {
+        let window = Window(title: title)
+        window.collect(content)
+        window.show()
+    }
+
     public var body: some Scene {
         WindowGroup(for: Window.ID.self) { $key in
             if let key,
