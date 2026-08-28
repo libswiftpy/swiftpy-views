@@ -146,10 +146,6 @@ public enum ViewContext {
     /// Appends the view to the innermost open window, or reports that no window
     /// took it and it belongs wherever the host puts a displayed view.
     public static func capture(_ view: AnyView) -> Bool {
-        // pocketpy compiles `with` as enter/body/exit with no `finally`, so a
-        // block that raises never reaches `__exit__`. Pinning a context to the
-        // execution that opened it is what stops a window left behind that way
-        // from swallowing the next execution's views.
         // TODO(tech-debt): with-no-finally
         while let last = stack.last, last.executionId != Interpreter.currentExecutionId {
             stack.removeLast()
