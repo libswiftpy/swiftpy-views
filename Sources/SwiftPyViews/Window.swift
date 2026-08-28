@@ -11,7 +11,7 @@ import SwiftUI
 import UIKit
 #endif
 
-/// A window that presents the views added to it.
+/// A window that presents the views added to it, or displayed inside its `with` block.
 @MainActor
 @Observable
 @Scriptable
@@ -58,6 +58,32 @@ class Window: Identifiable {
     /// view: A view, or a string to show as text.
     func add(_ view: PyObject) {
         views.append(view)
+    }
+
+    // Not an `add` overload: the macro binds `add(_:)` by its unapplied
+    // reference, which a second one of the same name makes ambiguous.
+    internal func collect(_ view: AnyView) {
+        guard let object = py.retain(view) else { return }
+        views.append(object)
+    }
+
+    /// Collects the views displayed in a `with` block instead of the console.
+    ///
+    /// A view on a line of its own is what the block displays:
+    ///
+    /// ```python
+    /// with Window("Report"):
+    ///     Markdown("# Hello")
+    /// ```
+    func __enter__() -> Window {
+        ViewContext.begin(self)
+        return self
+    }
+
+    /// Presents the window with everything its `with` block displayed.
+    func __exit__() {
+        ViewContext.end(self)
+        show()
     }
 
     /// Presents the window.
@@ -112,6 +138,39 @@ class Window: Identifiable {
     internal static var presentedWindows = Set<ID>()
 }
 
+/// The windows collecting the views displayed inside their `with` blocks.
+@MainActor
+public enum ViewContext {
+    private static var stack: [(window: Window, executionId: UInt64)] = []
+
+    /// Appends the view to the innermost open window, or reports that no window
+    /// took it and it belongs wherever the host puts a displayed view.
+    public static func capture(_ view: AnyView) -> Bool {
+        // pocketpy compiles `with` as enter/body/exit with no `finally`, so a
+        // block that raises never reaches `__exit__`. Pinning a context to the
+        // execution that opened it is what stops a window left behind that way
+        // from swallowing the next execution's views.
+        // TODO(tech-debt): with-no-finally
+        while let last = stack.last, last.executionId != Interpreter.currentExecutionId {
+            stack.removeLast()
+        }
+
+        guard let window = stack.last?.window else { return false }
+        window.collect(view)
+        return true
+    }
+
+    static func begin(_ window: Window) {
+        stack.append((window, Interpreter.currentExecutionId))
+    }
+
+    /// Ends the window's collection, and any block still open inside it.
+    static func end(_ window: Window) {
+        guard let index = stack.lastIndex(where: { $0.window === window }) else { return }
+        stack.removeSubrange(index...)
+    }
+}
+
 /// A window's content, with the title and close button its presentation adds.
 struct WindowContent: View {
     @State var window: Window
@@ -130,6 +189,9 @@ struct WindowContent: View {
             // Content that already fits shouldn't rubber-band.
             .scrollBounceBehavior(.basedOnSize)
             .navigationTitle(window.title ?? "")
+            // Elsewhere the window is a real one, so the OS gives it a close of
+            // its own.
+            #if os(iOS)
             .toolbar {
                 if window.closable {
                     SwiftUI.Button(role: .close) {
@@ -137,6 +199,7 @@ struct WindowContent: View {
                     }
                 }
             }
+            #endif
         }
     }
 }
