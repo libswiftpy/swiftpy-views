@@ -32,8 +32,23 @@ class Window: Identifiable {
     var sheet: Bool = false
 
     private(set) var views: [PyObject] = []
+    var destinations: [Destination] = []
 
     internal let id: ID
+
+    struct Destination: Hashable {
+        let id = UUID()
+        let view: PyObject
+        let title: String?
+
+        static func == (lhs: Destination, rhs: Destination) -> Bool {
+            lhs.id == rhs.id
+        }
+
+        func hash(into hasher: inout Hasher) {
+            hasher.combine(id)
+        }
+    }
 
     #if canImport(UIKit)
     // Weak: the presented controller's root view holds the window.
@@ -67,6 +82,11 @@ class Window: Identifiable {
         views.append(object)
     }
 
+    internal func navigate(title: String?, to view: AnyView) {
+        guard let object = py.retain(view) else { return }
+        destinations.append(Destination(view: object, title: title))
+    }
+
     /// Collects the views displayed in a `with` block instead of the console.
     ///
     /// A view on a line of its own is what the block displays:
@@ -84,6 +104,17 @@ class Window: Identifiable {
     func __exit__() {
         ViewContext.end(self)
         show()
+    }
+
+    /// Pushes a view onto the window's navigation stack.
+    ///
+    /// view: A view, or a string to show as text.
+    func push(_ view: PyObject) {
+        destinations.append(Destination(view: view, title: nil))
+
+        if !Window.presentedWindows.contains(id) {
+            show()
+        }
     }
 
     /// Presents the window.
@@ -172,7 +203,9 @@ struct WindowContent: View {
     @State var window: Window
 
     var body: some View {
-        NavigationStack {
+        @Bindable var window = window
+
+        NavigationStack(path: $window.destinations) {
             SwiftUI.ScrollView {
                 SwiftUI.VStack(alignment: .leading, spacing: 8) {
                     ForEach(window.views.indices, id: \.self) { index in
@@ -185,6 +218,15 @@ struct WindowContent: View {
             // Content that already fits shouldn't rubber-band.
             .scrollBounceBehavior(.basedOnSize)
             .navigationTitle(window.title ?? "")
+            .navigationDestination(for: Window.Destination.self) { destination in
+                SwiftUI.ScrollView {
+                    destination.view.asView
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(8)
+                }
+                .scrollBounceBehavior(.basedOnSize)
+                .navigationTitle(destination.title ?? window.title ?? "")
+            }
             // Elsewhere the window is a real one, so the OS gives it a close of
             // its own.
             #if os(iOS)

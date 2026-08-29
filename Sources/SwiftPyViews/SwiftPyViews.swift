@@ -14,6 +14,15 @@ public func initialize() {
     }
 }
 
+@MainActor
+public struct PythonWindowNavigator {
+    fileprivate let window: Window
+
+    public func push(title: String? = nil, content: AnyView) {
+        window.navigate(title: title, to: content)
+    }
+}
+
 public struct PythonWindows: Scene {
     public init() {
         SwiftPyViews.initialize()
@@ -21,9 +30,14 @@ public struct PythonWindows: Scene {
 
     /// Presents SwiftUI content using the same backing window as Python `Window`.
     @MainActor
-    public static func present(title: String? = nil, content: AnyView) {
-        let window = Window(title: title)
-        window.collect(content)
+    public static func present(
+        title: String? = nil,
+        sheet: Bool = false,
+        content: (PythonWindowNavigator) -> AnyView
+    ) {
+        let window = Window(title: title, sheet: sheet)
+        let navigator = PythonWindowNavigator(window: window)
+        window.collect(content(navigator))
         window.show()
     }
 
