@@ -13,7 +13,7 @@ let package = Package(
         ),
     ],
     dependencies: [
-        .package(url: "https://github.com/felfoldy/SwiftPy", from: "0.22.1"),
+        .package(url: "https://github.com/felfoldy/SwiftPy", from: "0.28.0"),
         .package(url: "https://github.com/appstefan/HighlightSwift.git", from: "1.1.0"),
         .package(url: "https://github.com/liyanan2004/MarkdownView", branch: "main", traits: []),
     ],
