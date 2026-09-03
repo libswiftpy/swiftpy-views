@@ -42,6 +42,17 @@ public struct PythonWindows: Scene {
     }
 
     public var body: some Scene {
+        #if os(macOS)
+        windows
+            .restorationBehavior(.disabled)
+            .defaultLaunchBehavior(.suppressed)
+            .commandsRemoved()
+        #else
+        windows
+        #endif
+    }
+
+    private var windows: some Scene {
         WindowGroup(for: Window.ID.self) { $key in
             if let key,
                let window = Window.windows[key] {
