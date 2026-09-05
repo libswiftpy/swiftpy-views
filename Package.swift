@@ -15,8 +15,8 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/felfoldy/SwiftPy", from: "0.28.0"),
         .package(url: "https://github.com/appstefan/HighlightSwift.git", from: "1.1.0"),
-        // Local fork until the SVG sizing fixes land upstream. See the tech-debt skill.
-        .package(path: "../MarkdownView"),
+        // Remote fork until the SVG sizing fixes land upstream. See the tech-debt skill.
+        .package(url: "https://github.com/felfoldy/MarkdownView", branch: "fix/scalable-svg"),
     ],
     targets: [
         .target(
