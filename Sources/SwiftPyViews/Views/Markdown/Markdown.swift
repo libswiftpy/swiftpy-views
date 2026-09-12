@@ -64,7 +64,7 @@ public struct MarkdownContent: View {
     @Environment(\.trimsLeadingHeadingPadding) private var trimsLeadingHeadingPadding
     @Environment(\.markdownSourceFormat) private var markdownSourceFormat
 
-    @State private var model: Markdown
+    private let model: Markdown
 
     public init(model: Markdown) {
         self.model = model
