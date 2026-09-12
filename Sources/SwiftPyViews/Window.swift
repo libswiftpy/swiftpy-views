@@ -53,6 +53,9 @@ class Window: Identifiable {
     #if canImport(UIKit)
     // Weak: the presented controller's root view holds the window.
     @ObservationIgnored private weak var presentedController: UIViewController?
+
+    /// Whether the window is a modal rather than a window of its own.
+    var isPresentedModally: Bool { presentedController != nil }
     #endif
 
     /// Creates a window to present views in.
@@ -227,11 +230,10 @@ struct WindowContent: View {
                 .scrollBounceBehavior(.basedOnSize)
                 .navigationTitle(destination.title ?? window.title ?? "")
             }
-            // Elsewhere the window is a real one, so the OS gives it a close of
-            // its own.
-            #if os(iOS)
+            // A real window gets a close from the OS; a modal has to bring one.
+            #if canImport(UIKit)
             .toolbar {
-                if window.closable {
+                if window.closable && window.isPresentedModally {
                     SwiftUI.Button(role: .close) {
                         window.close()
                     }

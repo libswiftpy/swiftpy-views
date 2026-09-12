@@ -51,7 +51,9 @@ public extension View {
         @ViewBuilder content: @escaping () -> Inspector
     ) -> some View {
         #if os(visionOS)
-        sheet(isPresented: isPresented, content: content)
+        sheet(isPresented: isPresented) {
+            ClosableSheet(content: content)
+        }
         #else
         inspector(isPresented: isPresented) {
             content()
@@ -73,5 +75,20 @@ public struct FixedToolbarSpacer: ToolbarContent {
         #else
         ToolbarSpacer(.fixed)
         #endif
+    }
+}
+
+// A visionOS sheet can't be swiped away, so it brings its own close.
+private struct ClosableSheet<Body: View>: View {
+    @ViewBuilder let content: () -> Body
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            content()
+                .toolbar {
+                    SwiftUI.Button(role: .close) { dismiss() }
+                }
+        }
     }
 }
