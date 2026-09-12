@@ -69,9 +69,7 @@ private struct ButtonContent: View {
                 .id(model.contentRevision)
         }
         .disabled(isProgressing)
-        #if !os(visionOS)
         .glassButtonStyle()
-        #endif
         .controlSize(.extraLarge)
     }
 }
