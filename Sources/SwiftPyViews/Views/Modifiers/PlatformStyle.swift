@@ -27,10 +27,10 @@ public extension View {
         #endif
     }
 
-    /// An interactive glass surface, or a material on visionOS.
+    /// An interactive glass surface, in each platform's own glass.
     func glassSurface(cornerRadius: CGFloat) -> some View {
         #if os(visionOS)
-        background(.regularMaterial, in: .rect(cornerRadius: cornerRadius))
+        glassBackgroundEffect(in: .rect(cornerRadius: cornerRadius))
         #else
         glassEffect(.regular.interactive(), in: .rect(cornerRadius: cornerRadius))
         #endif
