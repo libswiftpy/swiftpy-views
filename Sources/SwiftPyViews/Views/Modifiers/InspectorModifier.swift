@@ -43,14 +43,30 @@ private struct InspectorModifierContent: View {
                     SwiftUI.Image(systemName: "sidebar.trailing")
                 }
             }
-            .inspector(isPresented: $model.isPresented) {
+            .modifier(InspectorPresentation(isPresented: $model.isPresented) {
                 Form {
                     model.inspector.asView
                 }
+            })
+    }
+}
+
+// No inspector on visionOS; a sheet stands in.
+private struct InspectorPresentation<Inspector: View>: ViewModifier {
+    @Binding var isPresented: Bool
+    @ViewBuilder let inspector: () -> Inspector
+
+    func body(content: Content) -> some View {
+        #if os(visionOS)
+        content.sheet(isPresented: $isPresented, content: inspector)
+        #else
+        content.inspector(isPresented: $isPresented) {
+            inspector()
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
                 .presentationBackgroundInteraction(.enabled)
-            }
+        }
+        #endif
     }
 }
 

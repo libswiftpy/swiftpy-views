@@ -70,7 +70,7 @@ private struct ButtonContent: View {
         }
         .disabled(isProgressing)
         #if !os(visionOS)
-        .buttonStyle(.glass)
+        .glassButtonStyle()
         #endif
         .controlSize(.extraLarge)
     }
