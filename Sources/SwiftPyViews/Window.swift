@@ -101,7 +101,7 @@ class Window: Identifiable {
     }
 
     /// Presents the window with everything its `with` block displayed.
-    func __exit__() {
+    func __exit__(_ exceptionType: PyObject, _ exception: PyObject, _ traceback: PyObject) {
         ViewContext.end(self)
         show()
     }
