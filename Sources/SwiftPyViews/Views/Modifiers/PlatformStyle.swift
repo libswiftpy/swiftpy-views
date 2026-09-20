@@ -28,12 +28,17 @@ public extension View {
     }
 
     /// An interactive glass surface, in each platform's own glass.
-    func glassSurface(cornerRadius: CGFloat) -> some View {
-        #if os(visionOS)
-        glassBackgroundEffect(in: .rect(cornerRadius: cornerRadius))
-        #else
-        glassEffect(.regular.interactive(), in: .rect(cornerRadius: cornerRadius))
-        #endif
+    func glassSurface(cornerRadius: CGFloat, onTap: @escaping () -> Void) -> some View {
+        background {
+            Color.clear
+                .contentShape(.rect(cornerRadius: cornerRadius))
+                .onTapGesture(perform: onTap)
+                #if os(visionOS)
+                .glassBackgroundEffect(in: .rect(cornerRadius: cornerRadius))
+                #else
+                .glassEffect(.regular.interactive(), in: .rect(cornerRadius: cornerRadius))
+                #endif
+        }
     }
 
     /// Lets a scroll dismiss the keyboard where there is one to dismiss.
