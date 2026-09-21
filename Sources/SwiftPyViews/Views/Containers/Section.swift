@@ -53,29 +53,33 @@ private struct SectionContent: View {
 }
 
 private struct PreviewInspector: View {
+    @State private var section: PyObject?
+    @State private var section2: PyObject?
+
     init() {
         _ = SwiftPyViews.PythonWindows()
-        
-        Interpreter.run("""
-        from views import *
-
-        section = Section('test')
-        section.content = (
-            Text('text')
-        )
-        
-        section2 = Section('Test2')(
-            Text('text2')
-        )
-        """)
     }
-    
+
     var body: some View {
         Form {
-            py.main.section?.asView
-                //.frame(maxWidth: .infinity)
-            
-            py.main.section2?.asView
+            section?.asView
+            section2?.asView
+        }
+        .task {
+            await Interpreter.run("""
+            from views import *
+
+            section = Section('test')
+            section.content = (
+                Text('text')
+            )
+
+            section2 = Section('Test2')(
+                Text('text2')
+            )
+            """)
+            section = py.main.section
+            section2 = py.main.section2
         }
     }
 }

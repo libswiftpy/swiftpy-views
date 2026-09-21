@@ -79,32 +79,36 @@ private struct OutlineGroupContent: View {
 
 
 private struct PreviewOutlineGroup: View {
+    @State private var sidebar: PyObject?
+
     init() {
         _ = SwiftPyViews.PythonWindows()
-        
-        Interpreter.run("""
-        from views import *
-
-        class Node:
-            def __init__(self, name: str, children=None):
-                self.id = name
-                self.children = children or []
-                self.__view__ = Text(name).__view__
-
-        def select(id: str):
-            print(f"selected {id}")
-
-        tree = Node('root', [
-            Node('child1', [Node('child2')]),
-            Node('child3')
-        ])
-
-        sidebar = OutlineGroup([tree], select)
-        """)
     }
-    
+
     var body: some View {
-        py.main.sidebar?.asView
+        sidebar?.asView
+            .task {
+                await Interpreter.run("""
+                from views import *
+
+                class Node:
+                    def __init__(self, name: str, children=None):
+                        self.id = name
+                        self.children = children or []
+                        self.__view__ = Text(name).__view__
+
+                def select(id: str):
+                    print(f"selected {id}")
+
+                tree = Node('root', [
+                    Node('child1', [Node('child2')]),
+                    Node('child3')
+                ])
+
+                sidebar = OutlineGroup([tree], select)
+                """)
+                sidebar = py.main.sidebar
+            }
     }
 }
 

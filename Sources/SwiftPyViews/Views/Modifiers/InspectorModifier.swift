@@ -52,23 +52,27 @@ private struct InspectorModifierContent: View {
 }
 
 private struct PreviewInspector: View {
+    @State private var view: PyObject?
+
     init() {
         _ = SwiftPyViews.PythonWindows()
-        
-        Interpreter.run("""
-        from views import *
-
-        view = SplitView(
-            'Sidebar',
-            Text('content').inspector(
-                Text('inspector')
-            ),
-        )
-        """)
     }
-    
+
     var body: some View {
-        py.main.view?.asView
+        view?.asView
+            .task {
+                await Interpreter.run("""
+                from views import *
+
+                view = SplitView(
+                    'Sidebar',
+                    Text('content').inspector(
+                        Text('inspector')
+                    ),
+                )
+                """)
+                view = py.main.view
+            }
     }
 }
 
