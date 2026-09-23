@@ -6,13 +6,18 @@ import SwiftPy
 
 @MainActor
 public func initialize() {
-    PyBind.module("views", docs: "Views to build user interfaces with.") { module in
+    // The native module is private, as in the standard library: `views` is a
+    // Python file that re-exports the parts that are ready to be used.
+    PyBind.module("_views", docs: "Native views.") { module in
         module.classes(
             Markdown.self,
             Window.self,
             WebPageView.self,
+            CodeEditor.self,
         )
     }
+
+    PyBind.module("views", in: .module)
 }
 
 @MainActor

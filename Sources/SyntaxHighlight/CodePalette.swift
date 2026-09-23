@@ -17,6 +17,11 @@ public typealias CodeColor = NSColor
 public struct CodePalette: Sendable {
     public static let xcode = CodePalette()
 
+    /// The editor background the theme is drawn against.
+    public func background(in colorScheme: ColorScheme) -> CodeColor {
+        colorScheme == .dark ? CodeColor(hex: 0x1F2024) : CodeColor(hex: 0xFFFFFF)
+    }
+
     public func color(for scope: CodeScope, in colorScheme: ColorScheme) -> CodeColor {
         let palette = colorScheme == .dark ? Self.dark : Self.light
 
