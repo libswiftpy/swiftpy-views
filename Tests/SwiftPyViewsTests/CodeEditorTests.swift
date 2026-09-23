@@ -39,15 +39,38 @@ struct CodeEditorTests {
         ("    if x:|", "\n        "),
         ("    if x:   |", "\n        "),
         ("        x = 1|", "\n        "),
-        ("x = 1|", "\n"),
-        ("|    x = 1", "\n"),
-        ("d = {1: 2}|", "\n"),
         ("    x = 1|\nnext", "\n    "),
         ("    x = |1", "\n    "),
     ])
     func newlineCarriesTheIndent(marked: String, expected: String) {
         let (text, location) = split(marked)
-        #expect(CodeIndent.newline(in: text, at: location) == expected)
+        // The caret lands at the end of what went in.
+        #expect(CodeIndent.newline(in: text, at: location)
+                == .init(text: expected, caret: expected.utf16.count))
+    }
+
+    @Test(arguments: [
+        "x = 1|",
+        "|    x = 1",
+        "d = {1: 2}|",       // a colon that isn't at the end opens nothing
+        "\"|\"",              // a newline inside a string is a syntax error
+        "'|'",
+    ])
+    func aPlainNewlineIsLeftToThePlatform(marked: String) {
+        let (text, location) = split(marked)
+        #expect(CodeIndent.newline(in: text, at: location) == nil)
+    }
+
+    @Test(arguments: [
+        ("(|)", "\n    \n", 5),
+        ("[|]", "\n    \n", 5),
+        ("{|}", "\n    \n", 5),
+        ("    foo(|)", "\n        \n    ", 9),
+    ])
+    func abracketOpensOutOverThreeLines(marked: String, expected: String, caret: Int) {
+        let (text, location) = split(marked)
+        #expect(CodeIndent.newline(in: text, at: location)
+                == .init(text: expected, caret: caret))
     }
 
     @Test func backspaceDropsTheLineToThePreviousLevel() throws {
@@ -138,5 +161,38 @@ struct CodeEditorTests {
         // The emoji's leading surrogate counts as a word character, so the
         // closer isn't wedged in front of it.
         #expect(CodePairs.edit(typing: "\"", in: text, at: location) == nil)
+    }
+}
+
+@Suite struct CodePairDeletionTests {
+    private func split(_ marked: String) -> (NSString, Int) {
+        let location = (marked as NSString).range(of: "|").location
+        return (marked.replacingOccurrences(of: "|", with: "") as NSString, location)
+    }
+
+    @Test(arguments: [
+        ("(|)", NSRange(location: 0, length: 2)),
+        ("[|]", NSRange(location: 0, length: 2)),
+        ("{|}", NSRange(location: 0, length: 2)),
+        ("\"|\"", NSRange(location: 0, length: 2)),
+        ("'|'", NSRange(location: 0, length: 2)),
+        ("    foo(|)", NSRange(location: 7, length: 2)),
+    ])
+    func backspaceTakesTheEmptyPairWhole(marked: String, expected: NSRange) {
+        let (text, location) = split(marked)
+        #expect(CodePairs.emptyPair(in: text, at: location) == expected)
+    }
+
+    @Test(arguments: [
+        "(a|)",        // not empty
+        "(|",          // nothing ahead
+        "|)",          // nothing behind
+        "(|]",         // mismatched
+        "x = 1|",
+        "|",
+    ])
+    func everythingElseDeletesOneCharacter(marked: String) {
+        let (text, location) = split(marked)
+        #expect(CodePairs.emptyPair(in: text, at: location) == nil)
     }
 }

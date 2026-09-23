@@ -207,18 +207,32 @@ enum CodeIndent {
     /// Spaces per indentation, which is also the guides' spacing.
     static let width = 4
 
-    /// What a newline at `location` should insert: the line's own indentation,
-    /// one level deeper after a line that opens a block.
-    static func newline(in text: NSString, at location: Int) -> String {
+    /// Text to insert, and where in it the caret lands.
+    struct Insertion: Equatable {
+        var text: String
+        var caret: Int
+    }
+
+    /// What a newline at `location` should insert, or nil for a plain one the
+    /// platform can put in itself.
+    static func newline(in text: NSString, at location: Int) -> Insertion? {
         let lineStart = text.lineRange(for: NSRange(location: location, length: 0)).location
         let head = text.substring(with: NSRange(location: lineStart, length: location - lineStart))
+        let indent = String(head.prefix { $0 == " " })
+        let level = String(repeating: " ", count: width)
 
-        var indent = String(head.prefix { $0 == " " })
-        // A trailing colon opens a block, whatever follows it on the line.
-        if head.reversed().drop(while: { $0 == " " || $0 == "\t" }).first == ":" {
-            indent += String(repeating: " ", count: width)
+        // Inside a bracket, the pair opens out and the caret sits between.
+        if CodePairs.isInsideBrackets(in: text, at: location) {
+            let opened = "\n" + indent + level
+            return Insertion(text: opened + "\n" + indent, caret: opened.utf16.count)
         }
-        return "\n" + indent
+
+        // A trailing colon opens a block, whatever follows it on the line.
+        let opensBlock = head.reversed().drop(while: { $0 == " " || $0 == "\t" }).first == ":"
+        guard opensBlock || !indent.isEmpty else { return nil }
+
+        let inserted = "\n" + indent + (opensBlock ? level : "")
+        return Insertion(text: inserted, caret: inserted.utf16.count)
     }
 
     /// The range a backspace should take out when the caret sits in a line's
@@ -288,6 +302,23 @@ enum CodePairs {
         if let next, isWord(next) { return nil }
 
         return .close(String(utf16CodeUnits: [closer], count: 1))
+    }
+
+    /// The empty pair around the caret, which a backspace takes out whole: the
+    /// closer went in unasked, so one keystroke undoes the one that added it.
+    static func emptyPair(in text: NSString, at location: Int) -> NSRange? {
+        guard location > 0, location < text.length,
+              let closer = byOpener[text.character(at: location - 1)],
+              text.character(at: location) == closer
+        else { return nil }
+        return NSRange(location: location - 1, length: 2)
+    }
+
+    /// Whether the caret sits in an empty bracket pair. Quotes are left out: a
+    /// newline inside one is a syntax error, not a block.
+    static func isInsideBrackets(in text: NSString, at location: Int) -> Bool {
+        guard let pair = emptyPair(in: text, at: location) else { return false }
+        return !quotes.contains(text.character(at: pair.location))
     }
 
     /// Anything past ASCII counts: identifiers hold it, and so does prose.
@@ -603,6 +634,17 @@ extension CodeTextView.Coordinator: UITextViewDelegate {
         reportScroll(of: scrollView)
     }
 
+    /// More than the one character behind the caret: an empty pair, or a
+    /// whole indentation level.
+    fileprivate func backspaceRange(at location: Int, in source: NSString) -> NSRange? {
+        if parent.editing.autoPairs,
+           let pair = CodePairs.emptyPair(in: source, at: location) {
+            return pair
+        }
+        guard parent.editing.autoIndent else { return nil }
+        return CodeIndent.outdent(in: source, at: location)
+    }
+
     fileprivate func reportScroll(of scrollView: UIScrollView) {
         parent.reportScroll(
             offset: scrollView.contentOffset.x,
@@ -624,24 +666,27 @@ extension CodeTextView.Coordinator: UITextViewDelegate {
             return false
         }
 
-        if parent.editing.autoIndent {
-            if text == "\n" {
-                let newline = CodeIndent.newline(in: source, at: range.location)
-                // Nothing to add, so let UIKit insert it and don't recurse.
-                guard newline != "\n" else { return true }
-                textView.insertText(newline)
-                return false
+        if text == "\n", parent.editing.autoIndent {
+            // Nothing to add, so let UIKit insert it and don't recurse.
+            guard let insertion = CodeIndent.newline(in: source, at: range.location) else {
+                return true
             }
+            textView.insertText(insertion.text)
+            textView.selectedRange = NSRange(
+                location: range.location + insertion.caret,
+                length: 0
+            )
+            return false
+        }
 
-            // A backspace arrives as the preceding character replaced by nothing.
-            if text.isEmpty, range.length == 1,
-               let target = CodeIndent.outdent(in: source, at: NSMaxRange(range)),
-               let start = textView.position(from: textView.beginningOfDocument, offset: target.location),
-               let end = textView.position(from: start, offset: target.length),
-               let textRange = textView.textRange(from: start, to: end) {
-                textView.replace(textRange, withText: "")
-                return false
-            }
+        // A backspace arrives as the preceding character replaced by nothing.
+        if text.isEmpty, range.length == 1,
+           let target = backspaceRange(at: NSMaxRange(range), in: source),
+           let start = textView.position(from: textView.beginningOfDocument, offset: target.location),
+           let end = textView.position(from: start, offset: target.length),
+           let textRange = textView.textRange(from: start, to: end) {
+            textView.replace(textRange, withText: "")
+            return false
         }
 
         if parent.editing.autoPairs, range.length == 0,
@@ -814,17 +859,22 @@ extension CodeTextView.Coordinator: NSTextViewDelegate {
             return true
 
         case #selector(NSResponder.insertNewline(_:)):
-            guard parent.editing.autoIndent else { return false }
-            let newline = CodeIndent.newline(in: textView.string as NSString, at: selection.location)
             // Nothing to add, so let AppKit insert it with its own handling.
-            guard newline != "\n" else { return false }
-            textView.insertText(newline, replacementRange: selection)
+            guard parent.editing.autoIndent,
+                  let insertion = CodeIndent.newline(
+                      in: textView.string as NSString,
+                      at: selection.location
+                  )
+            else { return false }
+            textView.insertText(insertion.text, replacementRange: selection)
+            textView.setSelectedRange(
+                NSRange(location: selection.location + insertion.caret, length: 0)
+            )
             return true
 
         case #selector(NSResponder.deleteBackward(_:)):
-            guard parent.editing.autoIndent,
-                  selection.length == 0,
-                  let target = CodeIndent.outdent(in: textView.string as NSString, at: selection.location),
+            guard selection.length == 0,
+                  let target = backspaceRange(at: selection.location, in: textView.string as NSString),
                   textView.shouldChangeText(in: target, replacementString: "")
             else { return false }
             textView.textStorage?.replaceCharacters(in: target, with: "")
@@ -835,6 +885,17 @@ extension CodeTextView.Coordinator: NSTextViewDelegate {
         default:
             return false
         }
+    }
+
+    /// More than the one character behind the caret: an empty pair, or a
+    /// whole indentation level.
+    fileprivate func backspaceRange(at location: Int, in source: NSString) -> NSRange? {
+        if parent.editing.autoPairs,
+           let pair = CodePairs.emptyPair(in: source, at: location) {
+            return pair
+        }
+        guard parent.editing.autoIndent else { return nil }
+        return CodeIndent.outdent(in: source, at: location)
     }
 
     func textView(
