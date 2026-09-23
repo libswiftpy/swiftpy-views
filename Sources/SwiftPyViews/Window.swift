@@ -209,25 +209,18 @@ struct WindowContent: View {
         @Bindable var window = window
 
         NavigationStack(path: $window.destinations) {
-            SwiftUI.ScrollView {
+            WindowContentContainer {
                 SwiftUI.VStack(alignment: .leading, spacing: 8) {
                     ForEach(window.views.indices, id: \.self) { index in
                         window.views[index].asView
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(8)
             }
-            // Content that already fits shouldn't rubber-band.
-            .scrollBounceBehavior(.basedOnSize)
             .navigationTitle(window.title ?? "")
             .navigationDestination(for: Window.Destination.self) { destination in
-                SwiftUI.ScrollView {
+                WindowContentContainer {
                     destination.view.asView
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(8)
                 }
-                .scrollBounceBehavior(.basedOnSize)
                 .navigationTitle(destination.title ?? window.title ?? "")
             }
             // A real window gets a close from the OS; a modal has to bring one.
@@ -240,6 +233,38 @@ struct WindowContent: View {
                 }
             }
             #endif
+        }
+    }
+}
+
+/// A window's content, scrolling unless what it holds fills the space it is
+/// given. Filling content is handed the window whole: nesting it in the scroll
+/// view is what would cost it the safe area insets a scrollable view gets when
+/// it sits in the layout itself.
+private struct WindowContentContainer<Content: View>: View {
+    @ViewBuilder let content: Content
+
+    @State private var fillsAvailableSpace = false
+
+    var body: some View {
+        container
+            .onPreferenceChange(FillsAvailableSpaceKey.self) { fills in
+                fillsAvailableSpace = fills
+            }
+    }
+
+    @ViewBuilder
+    private var container: some View {
+        if fillsAvailableSpace {
+            content
+        } else {
+            SwiftUI.ScrollView {
+                content
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(8)
+            }
+            // Content that already fits shouldn't rubber-band.
+            .scrollBounceBehavior(.basedOnSize)
         }
     }
 }

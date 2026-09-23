@@ -10,6 +10,7 @@ public func initialize() {
         module.classes(
             Markdown.self,
             Window.self,
+            WebPageView.self,
         )
     }
 }
