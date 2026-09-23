@@ -11,6 +11,10 @@ let package = Package(
             name: "SwiftPyViews",
             targets: ["SwiftPyViews"]
         ),
+        .library(
+            name: "SyntaxHighlight",
+            targets: ["SyntaxHighlight"]
+        ),
     ],
     dependencies: [
         .package(url: "https://github.com/felfoldy/SwiftPy", from: "0.29.0"),
@@ -26,6 +30,14 @@ let package = Package(
                 "HighlightSwift",
                 .product(name: "MarkdownView", package: "MarkdownView"),
             ],
+        ),
+        .target(
+            name: "SyntaxHighlight",
+            resources: [.process("Resources")],
+        ),
+        .testTarget(
+            name: "SyntaxHighlightTests",
+            dependencies: ["SyntaxHighlight"],
         ),
     ]
 )

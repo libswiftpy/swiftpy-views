@@ -41,6 +41,16 @@ public extension View {
         }
     }
 
+    /// A non-interactive glass background, in each platform's own glass.
+    /// visionOS insets its glass, so the shape has to be insettable.
+    func glassBackground(in shape: some InsettableShape) -> some View {
+        #if os(visionOS)
+        glassBackgroundEffect(in: shape)
+        #else
+        glassEffect(in: shape)
+        #endif
+    }
+
     /// Lets a scroll dismiss the keyboard where there is one to dismiss.
     func dismissesKeyboardOnScroll() -> some View {
         #if os(visionOS)
