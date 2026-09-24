@@ -34,16 +34,19 @@ public enum CodeCompletion {
     /// parens: a trailing `(` (takes arguments) is closed with the caret left
     /// between the parens, while a closed `()` (no arguments) keeps the caret
     /// after them.
+    /// `indent` is what the tab fallback inserts — an editor that indents with
+    /// spaces has to say so, or its own Tab key and this disagree.
     public static func apply(
         _ completion: String,
         to source: String,
-        at cursor: String.Index
+        at cursor: String.Index,
+        indent: String = "\t"
     ) -> (source: String, cursor: String.Index) {
-        // The tab fallback inserts an actual tab for indentation.
+        // The tab fallback indents at the caret rather than replacing anything.
         if completion == "\t" {
             let cursorOffset = source.distance(from: source.startIndex, to: cursor)
-            let applied = String(source[..<cursor]) + completion + String(source[cursor...])
-            return (applied, applied.index(applied.startIndex, offsetBy: cursorOffset + completion.count))
+            let applied = String(source[..<cursor]) + indent + String(source[cursor...])
+            return (applied, applied.index(applied.startIndex, offsetBy: cursorOffset + indent.count))
         }
 
         // Close an open callable paren, remembering to leave the caret inside.

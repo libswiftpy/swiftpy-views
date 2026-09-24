@@ -58,6 +58,17 @@ struct CodeEditorTests {
         #expect(editor.selection == NSRange(location: 10, length: 0))
     }
 
+    @Test func theTabFallbackIndentsAsTheTabKeyDoes() {
+        let editor = CodeEditor(source: "if x:\n")
+        editor.selection = NSRange(location: 6, length: 0)
+
+        editor.apply("\t")
+
+        // Four spaces, not a tab: the Tab key puts in the same.
+        #expect(editor.source == "if x:\n    ")
+        #expect(editor.selection == NSRange(location: 10, length: 0))
+    }
+
     @Test func applyingWithARangeSelectionDoesNothing() {
         let editor = CodeEditor(source: "ran = 1")
         editor.selection = NSRange(location: 0, length: 3)

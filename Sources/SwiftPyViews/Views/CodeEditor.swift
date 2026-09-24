@@ -76,7 +76,13 @@ final class CodeEditor {
     internal func apply(_ completion: String) {
         guard let cursor else { return }
 
-        let result = CodeCompletion.apply(completion, to: source, at: cursor)
+        let result = CodeCompletion.apply(
+            completion,
+            to: source,
+            at: cursor,
+            // The same indentation the Tab key puts in.
+            indent: String(repeating: " ", count: CodeIndent.width)
+        )
         source = result.source
         selection = NSRange(result.cursor..<result.cursor, in: result.source)
     }
