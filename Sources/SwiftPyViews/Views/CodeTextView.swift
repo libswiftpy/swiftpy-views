@@ -42,6 +42,8 @@ struct CodeTextView {
     let leadingInset: CGFloat
     @Binding var selection: NSRange
     let onTextChange: (String) -> Void
+    /// Whether the text view holds the caret, so completion can follow it.
+    let onFocusChange: (Bool) -> Void
     let onLineHeight: (CGFloat) -> Void
     let onScrollEdges: (ScrollEdges) -> Void
 
@@ -672,6 +674,14 @@ extension CodeTextView.Coordinator: UITextViewDelegate {
         parent.onTextChange(textView.text)
     }
 
+    func textViewDidBeginEditing(_ textView: UITextView) {
+        parent.onFocusChange(true)
+    }
+
+    func textViewDidEndEditing(_ textView: UITextView) {
+        parent.onFocusChange(false)
+    }
+
     func textViewDidChangeSelection(_ textView: UITextView) {
         guard !isApplyingUpdate else { return }
         parent.selection = textView.selectedRange
@@ -789,6 +799,10 @@ extension CodeTextView: NSViewRepresentable {
         textView.isAutomaticSpellingCorrectionEnabled = false
         textView.isContinuousSpellCheckingEnabled = false
         textView.isGrammarCheckingEnabled = false
+
+        textView.onFocusChange = { [coordinator = context.coordinator] isFocused in
+            coordinator.parent.onFocusChange(isFocused)
+        }
 
         let scrollView = CodeScrollView()
         scrollView.onScroll = { [coordinator = context.coordinator] clipView in
@@ -978,11 +992,29 @@ extension CodeTextView.Coordinator: NSTextViewDelegate {
 /// and refuses the insertion-point reveal AppKit fires while resizing, which
 /// would drag the first column in under the gutter.
 final class CodeNSTextView: NSTextView {
+    /// AppKit has no delegate callback for this, unlike UIKit's
+    /// `textViewDidBeginEditing`, so the view reports it itself.
+    var onFocusChange: ((Bool) -> Void)?
+
     var showsIndentGuides = true {
         didSet { if showsIndentGuides != oldValue { needsDisplay = true } }
     }
 
     private var isResizing = false
+
+    override func becomeFirstResponder() -> Bool {
+        let became = super.becomeFirstResponder()
+        if became { onFocusChange?(true) }
+        return became
+    }
+
+    override func resignFirstResponder() -> Bool {
+        // Not called when the window merely stops being key, so two windows can
+        // each believe their editor is focused. Last focus wins.
+        let resigned = super.resignFirstResponder()
+        if resigned { onFocusChange?(false) }
+        return resigned
+    }
 
     override func setFrameSize(_ newSize: NSSize) {
         isResizing = true

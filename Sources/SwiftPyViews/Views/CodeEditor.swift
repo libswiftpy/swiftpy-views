@@ -60,6 +60,27 @@ final class CodeEditor {
         return range.lowerBound
     }
 
+    /// Drives `completer` while this editor holds the caret, until the calling
+    /// task is cancelled. `Observations` yields its initial value, so taking
+    /// the caret mid-identifier asks once straight away.
+    internal func complete(with completer: CodeCompleter) async {
+        completer.focus(self)
+        defer { completer.resign(self) }
+
+        for await (source, cursor) in Observations({ (self.source, self.cursor) }) {
+            completer.update(self, source: source, cursor: cursor)
+        }
+    }
+
+    /// Replaces the identifier at the caret with a chosen suggestion.
+    internal func apply(_ completion: String) {
+        guard let cursor else { return }
+
+        let result = CodeCompletion.apply(completion, to: source, at: cursor)
+        source = result.source
+        selection = NSRange(result.cursor..<result.cursor, in: result.source)
+    }
+
     /// Re-tokenizes ``source`` as it changes, until the calling task is cancelled.
     /// The scopes don't depend on the color scheme; the palette resolves that
     /// where the text is drawn.
@@ -82,6 +103,8 @@ private struct CodeEditorContent: View {
     // sit on the same grid as the lines instead of a grid of their own.
     @State private var lineHeight: CGFloat = 0
     @State private var scrollEdges = CodeTextView.ScrollEdges()
+    @State private var isFocused = false
+    @Environment(\.codeCompleter) private var completer
     @Environment(\.colorScheme) private var colorScheme
     // Read so the gutter is remeasured when the text size changes.
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -105,6 +128,7 @@ private struct CodeEditorContent: View {
             leadingInset: gutterWidth,
             selection: $model.selection,
             onTextChange: { model.source = $0 },
+            onFocusChange: { isFocused = $0 },
             onLineHeight: { lineHeight = $0 },
             onScrollEdges: { scrollEdges = $0 }
         )
@@ -144,6 +168,10 @@ private struct CodeEditorContent: View {
         .fillsAvailableSpace()
         .task {
             await model.highlight()
+        }
+        .task(id: isFocused) {
+            guard isFocused, let completer else { return }
+            await model.complete(with: completer)
         }
     }
 

@@ -25,6 +25,47 @@ struct CodeEditorTests {
 
         #expect(editor.cursor == nil)
     }
+
+    @Test func applyingReplacesTheIdentifierAndLeavesTheCaretInside() {
+        let editor = CodeEditor(source: "pri")
+        editor.selection = NSRange(location: 3, length: 0)
+
+        editor.apply("print(")
+
+        #expect(editor.source == "print()")
+        #expect(editor.selection == NSRange(location: 6, length: 0))
+    }
+
+    @Test func applyingAZeroArgumentCallableKeepsTheCaretAfterIt() {
+        let editor = CodeEditor(source: "cle")
+        editor.selection = NSRange(location: 3, length: 0)
+
+        editor.apply("clear()")
+
+        #expect(editor.source == "clear()")
+        #expect(editor.selection == NSRange(location: 7, length: 0))
+    }
+
+    @Test func applyingPastAMultiByteCharacterLandsOnTheRightOffset() {
+        let editor = CodeEditor(source: "a👍 ra")
+        // The thumb is two UTF-16 units, so the caret after "ra" is at 6.
+        editor.selection = NSRange(location: 6, length: 0)
+
+        editor.apply("range(")
+
+        #expect(editor.source == "a👍 range()")
+        // UTF-16 again: the caret sits between the parens, past the thumb.
+        #expect(editor.selection == NSRange(location: 10, length: 0))
+    }
+
+    @Test func applyingWithARangeSelectionDoesNothing() {
+        let editor = CodeEditor(source: "ran = 1")
+        editor.selection = NSRange(location: 0, length: 3)
+
+        editor.apply("ranges")
+
+        #expect(editor.source == "ran = 1")
+    }
 }
 
 @Suite struct CodeIndentTests {
