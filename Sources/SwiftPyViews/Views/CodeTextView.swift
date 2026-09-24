@@ -292,10 +292,18 @@ enum CodePairs {
 
         guard let closer = byOpener[typed] else { return nil }
 
-        // An apostrophe inside a word is punctuation, not an opening quote.
+        // Inside a string or a comment nothing is code, so nothing pairs —
+        // an apostrophe in prose, or a paren in a message.
+        guard context(in: text, at: location) == .code else { return nil }
+
         if quotes.contains(typed), location > 0 {
             let previous = text.character(at: location - 1)
-            if isWord(previous) || previous == typed { return nil }
+            if previous == typed { return nil }
+            // A word before a quote makes it an apostrophe — unless the word
+            // is a string prefix, where `f"` is exactly what was meant.
+            if isWord(previous), !isStringPrefix(in: text, endingAt: location) {
+                return nil
+            }
         }
 
         // Not where the closer would land against a word.
@@ -319,6 +327,46 @@ enum CodePairs {
     static func isInsideBrackets(in text: NSString, at location: Int) -> Bool {
         guard let pair = emptyPair(in: text, at: location) else { return false }
         return !quotes.contains(text.character(at: pair.location))
+    }
+
+    /// Where the caret sits, as far as pairing cares.
+    enum Context: Equatable {
+        case code
+        case string(quote: unichar)
+        case comment
+    }
+
+    /// Read from the start of the caret's line, so a triple-quoted string
+    /// spanning lines reads as code after its first one.
+    static func context(in text: NSString, at location: Int) -> Context {
+        let lineStart = text.lineRange(for: NSRange(location: location, length: 0)).location
+        var quote: unichar?
+        var index = lineStart
+
+        while index < location {
+            let unit = text.character(at: index)
+            if let open = quote {
+                // A backslash takes the next character with it, so an escaped
+                // quote doesn't close the string.
+                if unit == 0x5C { index += 2; continue }
+                if unit == open { quote = nil }
+            } else if quotes.contains(unit) {
+                quote = unit
+            } else if unit == 0x23 {
+                return .comment
+            }
+            index += 1
+        }
+
+        return quote.map { .string(quote: $0) } ?? .code
+    }
+
+    /// Whether the word ending at `location` is a Python string prefix.
+    private static func isStringPrefix(in text: NSString, endingAt location: Int) -> Bool {
+        var start = location
+        while start > 0, isWord(text.character(at: start - 1)) { start -= 1 }
+        let word = text.substring(with: NSRange(location: start, length: location - start))
+        return ["r", "u", "f", "fr", "rf", "b", "br", "rb"].contains(word.lowercased())
     }
 
     /// Anything past ASCII counts: identifiers hold it, and so does prose.

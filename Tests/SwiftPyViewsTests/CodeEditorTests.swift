@@ -196,3 +196,73 @@ struct CodeEditorTests {
         #expect(CodePairs.emptyPair(in: text, at: location) == nil)
     }
 }
+
+@Suite struct CodePairContextTests {
+    private func split(_ marked: String) -> (NSString, Int) {
+        let location = (marked as NSString).range(of: "|").location
+        return (marked.replacingOccurrences(of: "|", with: "") as NSString, location)
+    }
+
+    @Test(arguments: [
+        ("x = f|", "\"", "\""),
+        ("x = f|", "'", "'"),
+        ("x = rb|", "\"", "\""),
+        ("x = B|", "'", "'"),
+        ("x = FR|", "\"", "\""),
+        ("print(f|", "'", "'"),
+    ])
+    func aStringPrefixStillOpensAQuote(marked: String, typed: String, closer: String) {
+        let (text, location) = split(marked)
+        #expect(CodePairs.edit(typing: typed, in: text, at: location) == .close(closer))
+    }
+
+    @Test(arguments: [
+        ("x = xf|", "\""),      // not a prefix, so it reads as a word
+        ("if|", "'"),
+        ("don|", "'"),
+    ])
+    func anOrdinaryWordBeforeAQuoteDoesNot(marked: String, typed: String) {
+        let (text, location) = split(marked)
+        #expect(CodePairs.edit(typing: typed, in: text, at: location) == nil)
+    }
+
+    @Test(arguments: [
+        ("x = \"hello |\"", "'"),        // an apostrophe in prose
+        ("x = 'hello |'", "\""),
+        ("x = \"hello |\"", "("),        // a paren in a message
+        ("x = \"hello |\"", "["),
+        ("x = f\"a |\"", "'"),
+        ("x = \"it\\\"s |\"", "'"),      // the escaped quote didn't end it
+        ("# note |", "'"),
+        ("x = 1  # it |", "("),
+    ])
+    func nothingPairsInsideAStringOrComment(marked: String, typed: String) {
+        let (text, location) = split(marked)
+        #expect(CodePairs.edit(typing: typed, in: text, at: location) == nil)
+    }
+
+    @Test func theClosingQuoteStillStepsOver() {
+        // Typing the string's own quote at its end closes it, as before.
+        let (text, location) = split("x = \"hello |\"")
+        #expect(CodePairs.edit(typing: "\"", in: text, at: location) == .skip)
+    }
+
+    @Test func pairingResumesAfterTheStringEnds() {
+        let (text, location) = split("x = \"a\" + |")
+        #expect(CodePairs.edit(typing: "'", in: text, at: location) == .close("'"))
+    }
+
+    @Test(arguments: [
+        ("x = |", CodePairs.Context.code),
+        ("x = \"a|", .string(quote: 0x22)),
+        ("x = 'a|", .string(quote: 0x27)),
+        ("x = \"a\" |", .code),
+        ("x = \"a\\\"b|", .string(quote: 0x22)),
+        ("# a |", .comment),
+        ("x = \"# not a comment|", .string(quote: 0x22)),
+    ])
+    func contextReadsTheLine(marked: String, expected: CodePairs.Context) {
+        let (text, location) = split(marked)
+        #expect(CodePairs.context(in: text, at: location) == expected)
+    }
+}
