@@ -223,6 +223,20 @@ enum CodeIndent {
         let indent = String(head.prefix { $0 == " " })
         let level = String(repeating: " ", count: width)
 
+        // Nothing typed on this line, so Enter peels a level off instead of
+        // carrying the same indentation down forever. One level at a time, and
+        // to the stop below a stray indent, exactly as backspace does.
+        if !indent.isEmpty, indent.count == head.count,
+           location == text.length || text.character(at: location) == 0x0A {
+            let outdented = ((indent.count - 1) / width) * width
+            // Nothing left to take off: a plain newline, which the platform
+            // has to insert — inserting it here would re-enter this rule.
+            guard outdented > 0 else { return nil }
+
+            let inserted = "\n" + String(repeating: " ", count: outdented)
+            return Insertion(text: inserted, caret: inserted.utf16.count)
+        }
+
         // Inside a bracket, the pair opens out and the caret sits between.
         if CodePairs.isInsideBrackets(in: text, at: location) {
             let opened = "\n" + indent + level

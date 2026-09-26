@@ -93,6 +93,8 @@ struct CodeEditorTests {
         ("        x = 1|", "\n        "),
         ("    x = 1|\nnext", "\n    "),
         ("    x = |1", "\n    "),
+        // Only a line holding nothing but its indentation peels a level.
+        ("    x|", "\n    "),
     ])
     func newlineCarriesTheIndent(marked: String, expected: String) {
         let (text, location) = split(marked)
@@ -111,6 +113,36 @@ struct CodeEditorTests {
     func aPlainNewlineIsLeftToThePlatform(marked: String) {
         let (text, location) = split(marked)
         #expect(CodeIndent.newline(in: text, at: location) == nil)
+    }
+
+    @Test(arguments: [
+        // Two levels in, Enter peels one rather than dropping out of both.
+        ("def f():\n    if x:\n        |", "\n    ", 5),
+        ("def f():\n    if x:\n        |\nafter", "\n    ", 5),
+        // The stop below a stray indent, as backspace does.
+        ("      |", "\n    ", 5),
+    ])
+    func enterOnAnIndentedBlankLinePeelsALevel(marked: String, expected: String, caret: Int) {
+        let (text, location) = split(marked)
+        #expect(CodeIndent.newline(in: text, at: location)
+                == .init(text: expected, caret: caret))
+    }
+
+    @Test(arguments: [
+        // One level in, there is nothing to add: a plain newline, at column 0.
+        "def f():\n    print(1)\n    |",
+        "    |",
+    ])
+    func aBlankLineAtOneLevelFallsBackToAPlainNewline(marked: String) {
+        let (text, location) = split(marked)
+        #expect(CodeIndent.newline(in: text, at: location) == nil)
+    }
+
+    @Test func textAfterTheCaretKeepsTheIndent() {
+        // Splitting a line is editing it, not leaving a block.
+        let (text, location) = split("    |print(x)")
+        #expect(CodeIndent.newline(in: text, at: location)
+                == .init(text: "\n    ", caret: 5))
     }
 
     @Test(arguments: [
