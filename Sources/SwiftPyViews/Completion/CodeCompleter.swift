@@ -6,6 +6,12 @@
 import SwiftUI
 import SwiftPy
 
+#if os(macOS)
+import AppKit
+#else
+import UIKit
+#endif
+
 /// The suggestions for whichever editor holds the caret.
 ///
 /// Shared through the environment because the editor being completed and the
@@ -75,6 +81,23 @@ public final class CodeCompleter {
     public func apply(_ completion: String) {
         target?.apply(completion)
         completions = []
+    }
+
+    /// Takes the caret off whatever is being completed, which drops the
+    /// suggestions with it. A responder-chain hammer: the completer knows
+    /// *which* editor is focused but not its text view, and reaching that would
+    /// mean threading a signal through the representable on both platforms.
+    public func endEditing() {
+        #if os(macOS)
+        NSApp.keyWindow?.makeFirstResponder(nil)
+        #else
+        UIApplication.shared.sendAction(
+            #selector(UIResponder.resignFirstResponder),
+            to: nil,
+            from: nil,
+            for: nil
+        )
+        #endif
     }
 
     /// The interpreter connection changed; nothing in flight belongs to it.
