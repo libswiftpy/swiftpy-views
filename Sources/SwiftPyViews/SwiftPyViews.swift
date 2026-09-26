@@ -9,10 +9,11 @@ public func initialize() {
     // The native module is private, as in the standard library: `views` is a
     // Python file that re-exports the parts that are ready to be used.
     PyBind.module("_views", docs: "Native views.") { module in
+        // `WebPageView` is left out while it still crashes: unregistered, it
+        // cannot be reached from Python at all.
         module.classes(
             Markdown.self,
             Window.self,
-            WebPageView.self,
             CodeEditor.self,
         )
     }
