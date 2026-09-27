@@ -129,7 +129,7 @@ public final class CodeCompleter {
             for await event in await Interpreter.connection.events {
                 guard case let .completions(suggestions, token) = event.payload
                 else { continue }
-                await self?.receive(suggestions, for: token)
+                self?.receive(suggestions, for: token)
             }
         }
     }
