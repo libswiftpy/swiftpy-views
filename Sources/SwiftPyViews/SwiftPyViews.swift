@@ -15,6 +15,7 @@ public func initialize() {
             Markdown.self,
             Window.self,
             CodeEditor.self,
+            MarkdownEditor.self,
         )
     }
 
