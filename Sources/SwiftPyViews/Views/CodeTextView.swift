@@ -128,11 +128,19 @@ private extension NSTextLayoutManager {
             let frame = fragment.layoutFragmentFrame
             height = max(height, frame.maxY)
             width = max(width, frame.maxX)
-            if lineHeight == 0 { lineHeight = frame.height }
+            // A line, not the fragment: a lone line's fragment is also the
+            // last, which swallows the empty line after a trailing newline.
+            if lineHeight == 0 { lineHeight = fragment.firstLineHeight }
             return true
         }
 
         return (height, width, lineHeight)
+    }
+}
+
+private extension NSTextLayoutFragment {
+    var firstLineHeight: CGFloat {
+        textLineFragments.first?.typographicBounds.height ?? layoutFragmentFrame.height
     }
 }
 
@@ -436,7 +444,7 @@ private func drawIndentGuides(
         guard index < lines.count else { return false }
 
         let frame = fragment.layoutFragmentFrame
-        if lineHeight == 0 { lineHeight = frame.height }
+        if lineHeight == 0 { lineHeight = fragment.firstLineHeight }
         let top = frame.minY + inset.height
         let height = min(frame.height, lineHeight)
         guard top < clip.maxY, top + height > clip.minY else { return true }
