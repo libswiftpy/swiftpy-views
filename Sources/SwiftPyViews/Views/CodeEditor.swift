@@ -14,9 +14,9 @@ import Observation
 @Scriptable(base: .View)
 @MainActor
 @Observable
-final class CodeEditor {
-    var source: String
-    var isEditable: Bool
+public final class CodeEditor {
+    public var source: String
+    public var isEditable: Bool
     /// Enter carries the indentation down, and backspace in a line's leading
     /// whitespace takes a level off.
     var autoIndent: Bool
@@ -34,7 +34,7 @@ final class CodeEditor {
         var tokens: [CodeToken] = []
     }
 
-    init(
+    public init(
         source: String = "",
         isEditable: Bool = true,
         autoIndent: Bool = true,
@@ -48,7 +48,7 @@ final class CodeEditor {
         self.indentGuides = indentGuides
     }
 
-    func body() -> AnyView {
+    public func body() -> AnyView {
         AnyView(CodeEditorContent(model: self))
     }
 
@@ -102,7 +102,7 @@ final class CodeEditor {
     }
 }
 
-private struct CodeEditorContent: View {
+public struct CodeEditorContent: View {
     @Bindable var model: CodeEditor
 
     // Reported by the text view once it has laid the code out, so the numbers
@@ -115,7 +115,11 @@ private struct CodeEditorContent: View {
     // Read so the gutter is remeasured when the text size changes.
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    var body: some View {
+    public init(model: CodeEditor) {
+        self.model = model
+    }
+
+    public var body: some View {
         let lineCount = model.source.count { $0 == "\n" } + 1
         let gutterWidth = CodeTextView.characterAdvance * CGFloat("\(lineCount)".count) + 16
 
