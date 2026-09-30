@@ -55,6 +55,18 @@ public extension EnvironmentValues {
     @Entry var markdownSourceFormat: (any MarkdownSourceFormat)?
 }
 
+extension EnvironmentValues {
+    @Entry var markdownLinesTapAction: (@MainActor (Range<Int>) -> Void)?
+}
+
+public extension View {
+    /// Reports the zero-based lines of `Markdown.text` holding the tapped block.
+    /// Code blocks, quotes and tables don't report, nor does visionOS.
+    func onMarkdownLinesTap(perform action: @escaping @MainActor (Range<Int>) -> Void) -> some View {
+        environment(\.markdownLinesTapAction, action)
+    }
+}
+
 public struct MarkdownContent: View {
     private enum HeadingTopPadding {
         static let large: CGFloat = 24
@@ -63,6 +75,7 @@ public struct MarkdownContent: View {
 
     @Environment(\.trimsLeadingHeadingPadding) private var trimsLeadingHeadingPadding
     @Environment(\.markdownSourceFormat) private var markdownSourceFormat
+    @Environment(\.markdownLinesTapAction) private var linesTapAction
 
     private let model: Markdown
 
@@ -73,7 +86,7 @@ public struct MarkdownContent: View {
     public var body: some View {
         SwiftUI.VStack(alignment: .leading, spacing: 0) {
             ForEach(segments) { segment in
-                renderedMarkdown(segment.text)
+                renderedMarkdown(segment)
                     .padding(.top, segment.topPadding)
             }
         }
@@ -85,11 +98,25 @@ public struct MarkdownContent: View {
     // element flows with the words around it. `MarkdownView` builds a paragraph
     // out of separate views, which puts every one of them on its own line.
     @ViewBuilder
-    private func renderedMarkdown(_ text: String) -> some View {
-        let source = markdownSourceFormat?.format(text) ?? text
+    private func renderedMarkdown(_ segment: Segment) -> some View {
+        // The format keeps lines, so a tapped block's lines are the segment's.
+        let source = markdownSourceFormat?.format(segment.text) ?? segment.text
 
         #if os(iOS) || os(macOS)
-        MarkdownText(source)
+        if let linesTapAction {
+            MarkdownText(source)
+                // Markdown in a view it hosts, such as a popover, is another text.
+                .environment(\.markdownLinesTapAction, nil)
+                .onMarkdownBlockTap { range in
+                    // One-based; a block ending in a newline ends on column 1 of the next line.
+                    let endsOnNextLine = range.upperBound.column == 1
+                        && range.upperBound.line > range.lowerBound.line
+                    let end = range.upperBound.line - (endsOnNextLine ? 1 : 0)
+                    linesTapAction(segment.firstLine + range.lowerBound.line - 1 ..< segment.firstLine + end)
+                }
+        } else {
+            MarkdownText(source)
+        }
         #else
         // Zeroed so both renderers take their heading spacing from `segments`.
         MarkdownView(source)
@@ -101,6 +128,8 @@ public struct MarkdownContent: View {
         let id: Int
         let text: String
         let topPadding: CGFloat
+        /// Zero-based, in `model.text`.
+        let firstLine: Int
     }
 
     /// The markdown cut into a piece per heading, so each heading can be given
@@ -111,6 +140,7 @@ public struct MarkdownContent: View {
         var lines = [Substring]()
         var topPadding: CGFloat = 0
         var isInFence = false
+        var lineCount = 0
 
         func endSegment() {
             guard !lines.isEmpty else { return }
@@ -120,7 +150,8 @@ public struct MarkdownContent: View {
                     id: segments.count,
                     text: lines.joined(separator: "\n"),
                     // Nothing sits above the first piece to separate it from.
-                    topPadding: segments.isEmpty && trimsLeadingHeadingPadding ? 0 : topPadding
+                    topPadding: segments.isEmpty && trimsLeadingHeadingPadding ? 0 : topPadding,
+                    firstLine: lineCount - lines.count
                 )
             )
             lines = []
@@ -138,6 +169,7 @@ public struct MarkdownContent: View {
             }
 
             lines.append(line)
+            lineCount += 1
         }
         endSegment()
 

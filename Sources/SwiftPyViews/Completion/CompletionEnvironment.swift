@@ -27,8 +27,11 @@ public struct CompletionBar: View {
     public init() {}
 
     public var body: some View {
-        CompletionsView(completions: completer?.completions ?? []) { suggestion in
-            completer?.apply(suggestion)
+        // Not even the tab fallback: Markdown isn't indented by it.
+        if completer?.isEditingMarkdown != true {
+            CompletionsView(completions: completer?.completions ?? []) { suggestion in
+                completer?.apply(suggestion)
+            }
         }
     }
 }

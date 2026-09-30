@@ -24,9 +24,25 @@ public final class CodeCompleter {
     /// An editor holds the caret, which is what puts the input field into its
     /// completing state.
     public private(set) var isEditing = false
+    /// The caret is in Markdown, which has nothing to complete.
+    public private(set) var isEditingMarkdown = false
+
+    /// The Markdown editor holding the caret.
+    public var markdownEditor: MarkdownEditor? {
+        // `isEditingMarkdown` first: it is what observation sees change.
+        isEditingMarkdown ? focusedMarkdown : nil
+    }
+
+    /// The editor holding the caret has nothing but whitespace.
+    public var isEditingBlank: Bool {
+        guard isEditing else { return false }
+        let text = markdownEditor?.text ?? focused?.source
+        return text?.allSatisfy(\.isWhitespace) == true
+    }
 
     /// The editor driving the suggestions.
     @ObservationIgnored private weak var focused: CodeEditor?
+    @ObservationIgnored private weak var focusedMarkdown: MarkdownEditor?
     /// Where an applied suggestion goes. Kept past ``resign(_:)`` — see there.
     @ObservationIgnored private weak var target: CodeEditor?
     @ObservationIgnored private var request: Task<Void, Never>?
@@ -38,9 +54,29 @@ public final class CodeCompleter {
     /// The editor took the caret, so the suggestions are now its own.
     internal func focus(_ editor: CodeEditor) {
         focused = editor
+        focusedMarkdown = nil
+        isEditingMarkdown = false
         target = editor
         isEditing = true
         completions = []
+    }
+
+    internal func focus(_ editor: MarkdownEditor) {
+        focused = nil
+        // Nothing may be applied to the code editor left behind.
+        target = nil
+        focusedMarkdown = editor
+        isEditingMarkdown = true
+        isEditing = true
+        completions = []
+        request?.cancel()
+    }
+
+    internal func resign(_ editor: MarkdownEditor) {
+        guard focusedMarkdown === editor else { return }
+        focusedMarkdown = nil
+        isEditingMarkdown = false
+        isEditing = false
     }
 
     /// The editor gave the caret up. `target` deliberately stays: on macOS,

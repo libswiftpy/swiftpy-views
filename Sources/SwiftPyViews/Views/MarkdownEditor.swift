@@ -18,6 +18,14 @@ import Observation
 public final class MarkdownEditor {
     public var text: String
     public var isEditable: Bool
+    /// The zero-based line of the caret while focused; nil for a range.
+    public internal(set) var caretLine: Int?
+
+    public var isCaretOnEmptyLine: Bool {
+        guard let caretLine else { return false }
+        let lines = text.split(separator: "\n", omittingEmptySubsequences: false)
+        return caretLine < lines.count && lines[caretLine].allSatisfy(\.isWhitespace)
+    }
 
     internal private(set) var highlighted = Highlighted()
 
@@ -65,18 +73,63 @@ public final class MarkdownEditor {
             )
         }
     }
+
+    /// The zero-based line of an insertion point in `text`, nil for a range.
+    internal static func line(of selection: AttributedTextSelection, in text: AttributedString) -> Int? {
+        guard case let .insertionPoint(index) = selection.indices(in: text) else { return nil }
+        return text.characters[..<index].count { $0 == "\n" }
+    }
+
+    /// Character offsets as a range of `text`, or nil past its end.
+    internal static func range(_ offsets: Range<Int>, in text: AttributedString) -> Range<AttributedString.Index>? {
+        let characters = text.characters
+        guard offsets.lowerBound >= 0, offsets.upperBound <= characters.count else { return nil }
+        let lower = characters.index(characters.startIndex, offsetBy: offsets.lowerBound)
+        let upper = characters.index(lower, offsetBy: offsets.count)
+        return lower..<upper
+    }
+
+    /// Where zero-based `line` ends in `text`, before its newline; the text's
+    /// end past the last line.
+    internal static func endIndex(ofLine line: Int, in text: AttributedString) -> AttributedString.Index {
+        var start = text.startIndex
+        for _ in 0..<line {
+            guard let newline = text.characters[start...].firstIndex(of: "\n") else {
+                return text.endIndex
+            }
+            start = text.characters.index(after: newline)
+        }
+        return text.characters[start...].firstIndex(of: "\n") ?? text.endIndex
+    }
 }
 
 public struct MarkdownEditorContent: View {
     @Bindable var model: MarkdownEditor
+    private let caretLine: Int?
+    private let initialSelection: Range<Int>?
+    private let onEditingChanged: (Bool) -> Void
 
     // The editor's own copy: `model.text` is plain, this carries the colors.
     @State private var text = AttributedString()
     @State private var selection = AttributedTextSelection()
+    @State private var hasPlacedCaret = false
+    @FocusState private var isFocused: Bool
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.codeCompleter) private var completer
 
-    public init(model: MarkdownEditor) {
+    /// caretLine: Focuses the editor, with the caret at the end of this
+    /// zero-based line.
+    /// selection: Characters of the text to select instead, once focused.
+    public init(
+        model: MarkdownEditor,
+        caretLine: Int? = nil,
+        selection: Range<Int>? = nil,
+        onEditingChanged: @escaping (Bool) -> Void = { _ in }
+    ) {
         self.model = model
+        self.caretLine = caretLine
+        self.initialSelection = selection
+        self.onEditingChanged = onEditingChanged
     }
 
     public var body: some View {
@@ -93,6 +146,19 @@ public struct MarkdownEditorContent: View {
             .keyboardType(.asciiCapable)
             #endif
             .disabled(!model.isEditable)
+            .focused($isFocused)
+            .onAppear { if caretLine != nil { isFocused = true } }
+            .onChange(of: isFocused) { _, isFocused in
+                if isFocused {
+                    completer?.focus(model)
+                } else {
+                    completer?.resign(model)
+                }
+                updateCaretLine()
+                onEditingChanged(isFocused)
+            }
+            .onChange(of: selection) { updateCaretLine() }
+            .onDisappear { completer?.resign(model) }
             // Grows with its text; a window scrolls it with the rest.
             .scrollDisabled(true)
             .fixedSize(horizontal: false, vertical: true)
@@ -104,6 +170,17 @@ public struct MarkdownEditorContent: View {
                 guard String(text.characters) != model.text else { return }
                 text = AttributedString(model.text)
                 applyHighlight()
+
+                if let caretLine, !hasPlacedCaret {
+                    hasPlacedCaret = true
+                    if let range = initialSelection.flatMap({ MarkdownEditor.range($0, in: text) }) {
+                        selection = AttributedTextSelection(range: range)
+                    } else {
+                        selection = AttributedTextSelection(
+                            insertionPoint: MarkdownEditor.endIndex(ofLine: caretLine, in: text)
+                        )
+                    }
+                }
             }
             .onChange(of: text) {
                 let characters = String(text.characters)
@@ -114,6 +191,11 @@ public struct MarkdownEditorContent: View {
             .task {
                 await model.highlight()
             }
+    }
+
+    private func updateCaretLine() {
+        let line = isFocused ? MarkdownEditor.line(of: selection, in: text) : nil
+        if model.caretLine != line { model.caretLine = line }
     }
 
     /// A highlight a keystroke behind is withheld rather than applied to text

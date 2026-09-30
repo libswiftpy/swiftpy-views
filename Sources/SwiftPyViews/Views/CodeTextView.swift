@@ -41,6 +41,8 @@ struct CodeTextView {
     /// Kept clear on the leading edge for the line-number gutter.
     let leadingInset: CGFloat
     @Binding var selection: NSRange
+    /// Takes the caret once the view is in a window.
+    let wantsFocus: Bool
     let onTextChange: (String) -> Void
     /// Whether the text view holds the caret, so completion can follow it.
     let onFocusChange: (Bool) -> Void
@@ -510,15 +512,48 @@ final class CodeScrollView: UIScrollView {
     /// trailing edge changes what is off screen without scrolling.
     var onLayout: (@MainActor () -> Void)?
 
+    /// Set when the caret is given rather than tapped in: a tap lands where
+    /// the user can see, but a new card may be under the keyboard.
+    var revealsCaretWithKeyboard = false
+
     override init(frame: CGRect) {
         super.init(frame: frame)
         addSubview(textView)
+
+        // The keyboard covers what was visible when the caret arrived.
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(keyboardDidShow),
+            name: UIResponder.keyboardDidShowNotification,
+            object: nil
+        )
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError() }
 
     override func scrollRectToVisible(_ rect: CGRect, animated: Bool) {}
+
+    @objc private func keyboardDidShow() {
+        guard revealsCaretWithKeyboard else { return }
+        revealsCaretWithKeyboard = false
+        if textView.isFirstResponder { revealCaret() }
+    }
+
+    /// Scrolls whatever holds the editor, such as a document of cards, to the
+    /// caret's line. UIKit asks only the nearest scroll view, which is this
+    /// one, and this one only scrolls sideways.
+    func revealCaret() {
+        guard let range = textView.selectedTextRange,
+              let outer = sequence(first: superview, next: { $0?.superview })
+                .lazy.compactMap({ $0 as? UIScrollView }).first
+        else { return }
+
+        let caret = textView.convert(textView.caretRect(for: range.end), to: outer)
+        guard !caret.isNull, caret.maxY.isFinite else { return }
+        // A line of context below, so the caret isn't against the keyboard.
+        outer.scrollRectToVisible(caret.insetBy(dx: 0, dy: -caret.height), animated: true)
+    }
 
     /// Follows the caret, only when it isn't already visible, so that nothing
     /// else moving the view can be fought over.
@@ -656,6 +691,12 @@ extension CodeTextView: UIViewRepresentable {
             || coordinator.measured?.font != Self.font {
             coordinator.measured = (text, leadingInset, Self.font)
             measure(scrollView, coordinator: coordinator)
+        }
+
+        // A hop: a view just made is not in its window yet.
+        if wantsFocus, !textView.isFirstResponder {
+            scrollView.revealsCaretWithKeyboard = true
+            Task { @MainActor in textView.becomeFirstResponder() }
         }
     }
 
@@ -897,6 +938,11 @@ extension CodeTextView: NSViewRepresentable {
                 contentWidth: coordinator.codeWidth,
                 to: coordinator
             )
+        }
+
+        // A hop: a view just made is not in its window yet.
+        if wantsFocus, textView.window?.firstResponder !== textView {
+            Task { @MainActor in textView.window?.makeFirstResponder(textView) }
         }
     }
 

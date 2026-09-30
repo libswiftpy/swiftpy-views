@@ -25,6 +25,9 @@ public final class CodeEditor {
     var indentGuides: Bool
 
     internal var selection = NSRange(location: 0, length: 0)
+    /// Until the text view takes the caret: it may not exist yet.
+    internal var wantsFocus = false
+    public internal(set) var isFocused = false
     internal private(set) var highlighted = Highlighted()
 
     /// Tokens with the source they were made from, so a highlight that is a
@@ -50,6 +53,13 @@ public final class CodeEditor {
 
     public func body() -> AnyView {
         AnyView(CodeEditorContent(model: self))
+    }
+
+    /// Puts the caret in the editor, at the end of its source.
+    public func focus() {
+        let end = (source as NSString).length
+        selection = NSRange(location: end, length: 0)
+        wantsFocus = true
     }
 
     /// The caret, or nil for a range selection, in the terms completion uses.
@@ -137,8 +147,13 @@ public struct CodeEditorContent: View {
             ),
             leadingInset: gutterWidth,
             selection: $model.selection,
+            wantsFocus: model.wantsFocus,
             onTextChange: { model.source = $0 },
-            onFocusChange: { isFocused = $0 },
+            onFocusChange: {
+                isFocused = $0
+                model.isFocused = $0
+                if $0 { model.wantsFocus = false }
+            },
             onLineHeight: { lineHeight = $0 },
             onScrollEdges: { scrollEdges = $0 }
         )
