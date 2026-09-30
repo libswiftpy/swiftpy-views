@@ -55,6 +55,16 @@ public final class CodeEditor {
         AnyView(CodeEditorContent(model: self))
     }
 
+    /// The width one line of source takes with its gutter, or nil when it spans
+    /// several: a host can set controls beside code that leaves room for them.
+    public var oneLineWidth: CGFloat? {
+        guard !source.contains("\n") else { return nil }
+        let advance = CodeTextView.characterAdvance
+        // The one-digit gutter as `CodeEditorContent` sizes it, the code, and
+        // room for the caret after it.
+        return advance + 16 + CGFloat(source.count + 1) * advance
+    }
+
     /// Puts the caret in the editor, at the end of its source.
     public func focus() {
         let end = (source as NSString).length
