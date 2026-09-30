@@ -6,8 +6,8 @@
 //
 
 import SwiftUI
-import HighlightSwift
 import MarkdownView
+import SyntaxHighlight
 
 #if os(macOS)
 import AppKit
@@ -26,8 +26,7 @@ struct SwiftPyCodeBlockStyle: MarkdownCodeBlockStyle {
             }
 
             SwiftUI.ScrollView(.horizontal) {
-                CodeText(configuration.code)
-                    .highlightMode(.languageAlias(alias(for: configuration.language)))
+                HighlightedCode(code: configuration.code, language: configuration.language ?? "")
                     .padding(.horizontal, 8)
             }
             .contentMargins(.trailing, 30, for: .scrollContent)
@@ -44,14 +43,33 @@ struct SwiftPyCodeBlockStyle: MarkdownCodeBlockStyle {
         .frame(maxWidth: .infinity, alignment: .leading)
         .textSelection(.enabled)
     }
+}
 
-    /// Without an explicit language `CodeText` detects one per block, which
-    /// colors otherwise identical snippets differently. An unsupported or
-    /// missing fence language stays unknown to highlight.js, which leaves the
-    /// code plain rather than coloring it as something it is not.
-    private func alias(for language: String?) -> String {
-        let language = language ?? ""
-        return HighlightLanguage.alias(for: language) ?? language
+/// Code colored by the bundled highlighter. A missing or unbundled fence
+/// language leaves it plain rather than guessing one.
+private struct HighlightedCode: View {
+    let code: String
+    let language: String
+
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var highlighted = MarkdownEditor.Highlighted()
+
+    var body: some View {
+        SwiftUI.Text(attributed)
+            .task(id: [code, language]) {
+                // highlight.js names, and resolves aliases such as `py`, in lowercase.
+                let tokens = await CodeHighlighter.shared.tokens(for: code, language: language.lowercased())
+                highlighted = MarkdownEditor.Highlighted(text: code, tokens: tokens)
+            }
+    }
+
+    private var attributed: AttributedString {
+        var text = AttributedString(code)
+        // Tokens made from other code would color the wrong ranges.
+        if highlighted.text == code {
+            MarkdownEditor.color(&text, by: highlighted.tokens, in: colorScheme)
+        }
+        return text
     }
 }
 
