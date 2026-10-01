@@ -55,18 +55,6 @@ public extension EnvironmentValues {
     @Entry var markdownSourceFormat: (any MarkdownSourceFormat)?
 }
 
-extension EnvironmentValues {
-    @Entry var markdownLinesTapAction: (@MainActor (Range<Int>) -> Void)?
-}
-
-public extension View {
-    /// Reports the zero-based lines of `Markdown.text` holding the tapped block.
-    /// Code blocks, quotes and tables don't report, nor does visionOS.
-    func onMarkdownLinesTap(perform action: @escaping @MainActor (Range<Int>) -> Void) -> some View {
-        environment(\.markdownLinesTapAction, action)
-    }
-}
-
 public struct MarkdownContent: View {
     private enum HeadingTopPadding {
         static let large: CGFloat = 24
@@ -75,12 +63,18 @@ public struct MarkdownContent: View {
 
     @Environment(\.trimsLeadingHeadingPadding) private var trimsLeadingHeadingPadding
     @Environment(\.markdownSourceFormat) private var markdownSourceFormat
-    @Environment(\.markdownLinesTapAction) private var linesTapAction
 
     private let model: Markdown
+    // Passed in rather than through the environment, which can't compare a
+    // closure and would invalidate every reader on any environment write.
+    private let linesTapAction: (@MainActor (Range<Int>) -> Void)?
 
-    public init(model: Markdown) {
+    /// - Parameter onLinesTap: Reports the zero-based lines of `Markdown.text`
+    ///   holding the tapped block. Code blocks, quotes and tables don't report,
+    ///   nor does visionOS.
+    public init(model: Markdown, onLinesTap: (@MainActor (Range<Int>) -> Void)? = nil) {
         self.model = model
+        self.linesTapAction = onLinesTap
     }
 
     public var body: some View {
@@ -105,8 +99,6 @@ public struct MarkdownContent: View {
         #if os(iOS) || os(macOS)
         if let linesTapAction {
             MarkdownText(source)
-                // Markdown in a view it hosts, such as a popover, is another text.
-                .environment(\.markdownLinesTapAction, nil)
                 .onMarkdownBlockTap { range in
                     // One-based; a block ending in a newline ends on column 1 of the next line.
                     let endsOnNextLine = range.upperBound.column == 1
