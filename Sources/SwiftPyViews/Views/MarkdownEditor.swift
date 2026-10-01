@@ -130,6 +130,9 @@ public struct MarkdownEditorContent: View {
         self.caretLine = caretLine
         self.initialSelection = selection
         self.onEditingChanged = onEditingChanged
+        // Laid out with its text from the start: AppKit keeps the height of the
+        // first layout, so text arriving after it is cut off.
+        _text = State(initialValue: AttributedString(model.text))
     }
 
     public var body: some View {
@@ -167,8 +170,10 @@ public struct MarkdownEditorContent: View {
             .background(Color(platformColor: CodePalette.xcode.background(in: colorScheme)))
             .onChange(of: model.text, initial: true) {
                 // Only from outside, such as Python setting it.
-                guard String(text.characters) != model.text else { return }
-                text = AttributedString(model.text)
+                if String(text.characters) != model.text {
+                    text = AttributedString(model.text)
+                }
+                // Also on appear: a highlight made earlier won't change again.
                 applyHighlight()
 
                 if let caretLine, !hasPlacedCaret {
