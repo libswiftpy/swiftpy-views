@@ -487,6 +487,14 @@ final class CodeUITextView: UITextView {
         didSet { if showsIndentGuides != oldValue { setNeedsDisplay() } }
     }
 
+    // A touch that stops a scrolling container only stops it, rather than
+    // also putting the caret in the code.
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        let isScrolling = sequence(first: superview, next: { $0?.superview })
+            .contains { ($0 as? UIScrollView)?.isDecelerating == true }
+        return isScrolling ? nil : super.hitTest(point, with: event)
+    }
+
     override func draw(_ rect: CGRect) {
         super.draw(rect)
         guard showsIndentGuides, let layoutManager = textLayoutManager else { return }
