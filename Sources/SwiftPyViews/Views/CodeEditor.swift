@@ -10,6 +10,27 @@ import SwiftPy
 import SyntaxHighlight
 import Observation
 
+/// A span of code to underline, in the 1-based lines and columns a diagnostic
+/// reports (columns in UTF-16, the end exclusive).
+public struct CodeMarker: Equatable {
+    public var line: Int
+    public var column: Int
+    public var endLine: Int
+    public var endColumn: Int
+    public var color: Color
+
+    /// Width of one character of the editor's code, to place what points at it.
+    @MainActor public static var characterAdvance: CGFloat { CodeTextView.characterAdvance }
+
+    public init(line: Int, column: Int, endLine: Int, endColumn: Int, color: Color) {
+        self.line = line
+        self.column = column
+        self.endLine = endLine
+        self.endColumn = endColumn
+        self.color = color
+    }
+}
+
 /// An editable, syntax-highlighted Python source view.
 @Scriptable(base: .View)
 @MainActor
@@ -29,12 +50,20 @@ public final class CodeEditor {
     internal var wantsFocus = false
     public internal(set) var isFocused = false
     internal private(set) var highlighted = Highlighted()
+    internal private(set) var marked = Marked()
 
     /// Tokens with the source they were made from, so a highlight that is a
     /// keystroke behind can be recognised without comparing it to the buffer.
     internal struct Highlighted {
         var source = ""
         var tokens: [CodeToken] = []
+    }
+
+    /// Ranges with the source they were made for, so markers that are a
+    /// keystroke behind aren't drawn over other text.
+    internal struct Marked {
+        var source = ""
+        var marks: [CodeTextView.Mark] = []
     }
 
     public init(
@@ -107,6 +136,30 @@ public final class CodeEditor {
         selection = NSRange(result.cursor..<result.cursor, in: result.source)
     }
 
+    /// Underlines `markers`, found in `source`; they're withheld once the text
+    /// is no longer that.
+    public func setMarkers(_ markers: [CodeMarker], for source: String) {
+        let text = source as NSString
+        var lineStarts = [0]
+        for index in 0..<text.length where text.character(at: index) == 0x0A {
+            lineStarts.append(index + 1)
+        }
+        func offset(_ line: Int, _ column: Int) -> Int {
+            guard line >= 1, line <= lineStarts.count else { return text.length }
+            return min(lineStarts[line - 1] + max(column - 1, 0), text.length)
+        }
+        let marks: [CodeTextView.Mark] = markers.compactMap { marker in
+            guard text.length > 0 else { return nil }
+            var start = offset(marker.line, marker.column)
+            var end = offset(marker.endLine, marker.endColumn)
+            // A span with no width, or past the end, still marks a character.
+            if start >= text.length { start = text.length - 1 }
+            if end <= start { end = start + 1 }
+            return CodeTextView.Mark(range: NSRange(location: start, length: end - start), color: marker.color)
+        }
+        marked = Marked(source: source, marks: marks)
+    }
+
     /// Re-tokenizes ``source`` as it changes, until the calling task is cancelled.
     /// The scopes don't depend on the color scheme; the palette resolves that
     /// where the text is drawn.
@@ -148,6 +201,7 @@ public struct CodeEditorContent: View {
             // A stale highlight is withheld rather than applied to text it
             // wasn't made from.
             tokens: model.highlighted.source == model.source ? model.highlighted.tokens : nil,
+            marks: model.marked.source == model.source ? model.marked.marks : [],
             colorScheme: colorScheme,
             isEditable: model.isEditable,
             editing: CodeEditing(

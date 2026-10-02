@@ -35,6 +35,8 @@ struct CodeTextView {
     let text: String
     /// Nil while the tokens belong to text other than ``text``.
     let tokens: [CodeToken]?
+    /// Underlined for what a check found; empty while they're for other text.
+    let marks: [Mark]
     let colorScheme: ColorScheme
     let isEditable: Bool
     let editing: CodeEditing
@@ -48,6 +50,11 @@ struct CodeTextView {
     let onFocusChange: (Bool) -> Void
     let onLineHeight: (CGFloat) -> Void
     let onScrollEdges: (ScrollEdges) -> Void
+
+    struct Mark: Equatable {
+        let range: NSRange
+        let color: Color
+    }
 
     /// Which edges have code beyond them, so the gutter's glass and the
     /// trailing shadow only appear when there is something behind them.
@@ -163,6 +170,22 @@ private extension CodeTextView {
                 value: CodePalette.xcode.color(for: token.scope, in: colorScheme),
                 range: token.range
             )
+        }
+        storage.endEditing()
+    }
+
+    /// Underlines in place, over whatever colors the highlight left.
+    func applyMarks(to storage: NSTextStorage) {
+        let length = storage.length
+        let whole = NSRange(location: 0, length: length)
+        storage.beginEditing()
+        storage.removeAttribute(.underlineStyle, range: whole)
+        storage.removeAttribute(.underlineColor, range: whole)
+        for mark in marks where NSMaxRange(mark.range) <= length {
+            storage.addAttributes([
+                .underlineStyle: NSUnderlineStyle.single.rawValue,
+                .underlineColor: PlatformColor(mark.color),
+            ], range: mark.range)
         }
         storage.endEditing()
     }
@@ -686,6 +709,7 @@ extension CodeTextView: UIViewRepresentable {
         }
         if let storage = textView.textLayoutManager?.codeTextStorage {
             applyHighlight(to: storage)
+            applyMarks(to: storage)
         }
         textView.typingAttributes = Self.textAttributes
 
@@ -923,6 +947,7 @@ extension CodeTextView: NSViewRepresentable {
         }
         if let storage = textView.textLayoutManager?.codeTextStorage {
             applyHighlight(to: storage)
+            applyMarks(to: storage)
         }
         textView.typingAttributes = Self.textAttributes
 

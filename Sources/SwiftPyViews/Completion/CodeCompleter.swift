@@ -12,6 +12,15 @@ import AppKit
 import UIKit
 #endif
 
+/// Completes from an editor's whole source, where the interpreter only sees
+/// the fragment before the caret.
+@MainActor
+public protocol CompletionProvider: AnyObject {
+    /// Suggestions for the identifier ending at `cursor`, each replacing it
+    /// whole, as ``CodeCompletion/apply(_:to:at:indent:)`` does.
+    func completions(in editor: CodeEditor, source: String, cursor: String.Index) async -> [String]
+}
+
 /// The suggestions for whichever editor holds the caret.
 ///
 /// Shared through the environment because the editor being completed and the
@@ -48,6 +57,8 @@ public final class CodeCompleter {
     @ObservationIgnored private var request: Task<Void, Never>?
     @ObservationIgnored private var pending: UUID?
     @ObservationIgnored private var events: Task<Void, Never>?
+    /// Asked instead of the interpreter when set.
+    @ObservationIgnored public var provider: (any CompletionProvider)?
 
     public init() {}
 
@@ -104,12 +115,18 @@ public final class CodeCompleter {
         }
 
         let query = CodeCompletion.query(in: source, at: cursor)
-        request = Task { [weak self] in
+        request = Task { [weak self, weak editor] in
             // A keystroke is not a question yet. Without this the editor asks
             // once per key, which is a round trip each over a remote host.
             try? await Task.sleep(for: .milliseconds(100))
             guard !Task.isCancelled else { return }
-            await self?.send(query)
+            if let provider = self?.provider, let editor {
+                let suggestions = await provider.completions(in: editor, source: source, cursor: cursor)
+                guard !Task.isCancelled else { return }
+                self?.completions = suggestions
+            } else {
+                await self?.send(query)
+            }
         }
     }
 
