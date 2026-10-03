@@ -246,7 +246,7 @@ private final class SignatureProvider: CompletionProvider {
     var requests: [Request] = []
     var finished = 0
 
-    func completions(in editor: CodeEditor, source: String, cursor: String.Index) async -> [String] { [] }
+    func completions(in editor: CodeEditor, source: String, cursor: String.Index) async -> [CodeSuggestion] { [] }
 
     func signatureHelp(in editor: CodeEditor, source: String, cursor: String.Index) async -> CodeSignature? {
         let result = await withCheckedContinuation { continuation in
@@ -532,5 +532,24 @@ private final class SignatureProvider: CompletionProvider {
     func contextReadsTheLine(marked: String, expected: CodePairs.Context) {
         let (text, location) = split(marked)
         #expect(CodePairs.context(in: text, at: location) == expected)
+    }
+}
+
+struct CodeSuggestionTests {
+    @Test func iconsTakeTheHighlightersColorForWhatItColors() {
+        #expect(CodeSuggestion.Kind.method.symbol == CodeSuggestion.Kind.function.symbol)
+        #expect(CodeSuggestion.Kind.module.symbol == "curlybraces")
+        #expect(CodeSuggestion.Kind.function.scope == .title)
+        #expect(CodeSuggestion.Kind.class.scope == .titleClass)
+        #expect(CodeSuggestion.Kind.keyword.scope == .keyword)
+        #expect(CodeSuggestion.Kind.variable.scope == nil)
+    }
+
+    @MainActor
+    @Test func suggestionsAreShownOnceByText() {
+        let view = CompletionsView(completions: [
+            CodeSuggestion(text: "print", kind: .function), CodeSuggestion(text: "print"), CodeSuggestion(text: "pow"),
+        ]) { _ in }
+        #expect(view.completions.map(\.text) == ["print", "pow"])
     }
 }

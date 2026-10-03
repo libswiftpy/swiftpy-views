@@ -18,7 +18,7 @@ import UIKit
 public protocol CompletionProvider: AnyObject {
     /// Suggestions for the identifier ending at `cursor`, each replacing it
     /// whole, as ``CodeCompletion/apply(_:to:at:indent:)`` does.
-    func completions(in editor: CodeEditor, source: String, cursor: String.Index) async -> [String]
+    func completions(in editor: CodeEditor, source: String, cursor: String.Index) async -> [CodeSuggestion]
     func signatureHelp(in editor: CodeEditor, source: String, cursor: String.Index) async -> CodeSignature?
 }
 
@@ -36,7 +36,7 @@ public extension CompletionProvider {
 @MainActor
 @Observable
 public final class CodeCompleter {
-    public private(set) var completions: [String] = []
+    public private(set) var completions: [CodeSuggestion] = []
     public private(set) var signature: CodeSignature?
     @ObservationIgnored private var signatureRequest: Task<Void, Never>?
     /// An editor holds the caret, which is what puts the input field into its
@@ -225,6 +225,6 @@ public final class CodeCompleter {
 
     private func receive(_ suggestions: [String], for token: UUID) {
         guard token == pending else { return }
-        completions = suggestions
+        completions = suggestions.map { CodeSuggestion(text: $0) }
     }
 }

@@ -22,21 +22,66 @@ public extension View {
 /// screen. A leaf of its own, so a response repaints the bar rather than the
 /// whole field around it.
 public struct CompletionBar: View {
+    /// A tapped call's signature help, shown until pyright's own arrives.
+    private struct Expansion: Equatable {
+        let id: String
+        let signature: CodeSignature
+    }
+
     @Environment(\.codeCompleter) private var completer
+    @Namespace private var namespace
+    @State private var expansion: Expansion?
 
     public init() {}
 
     public var body: some View {
         // Not even the tab fallback: Markdown isn't indented by it.
         if completer?.isEditingMarkdown != true {
+            let completions = completer?.completions ?? []
+            let calls = completions.filter { $0.signature != nil }
             SwiftUI.VStack(alignment: .leading, spacing: 0) {
-                if let signature = completer?.signature {
+                // The calls of the name at the caret, where their signature help will be.
+                if !calls.isEmpty {
+                    SwiftUI.HStack {
+                        ForEach(calls, id: \.text) { call in
+                            SuggestionChip(suggestion: call) { apply(call) }
+                                .matchedGeometryEffect(id: call.text, in: namespace)
+                        }
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.top, 8)
+                    .glassButtonStyle()
+                    .buttonBorderShape(.capsule)
+                    .monospaced()
+                } else if let signature = completer?.signature ?? expansion?.signature {
                     SignatureHelpView(signature: signature)
+                        .matchedGeometryEffect(id: expansion?.id ?? "signature", in: namespace)
                 }
-                CompletionsView(completions: completer?.completions ?? []) { suggestion in
-                    completer?.apply(suggestion)
+                CompletionsView(completions: completions.filter { $0.signature == nil }) { suggestion in
+                    completer?.apply(suggestion.text)
                 }
             }
+            .onChange(of: completer?.signature) {
+                if completer?.signature != nil { expansion = nil }
+            }
+            .onChange(of: completer?.isEditing) { expansion = nil }
+            // In case no signature help comes.
+            .task(id: expansion) {
+                guard expansion != nil else { return }
+                try? await Task.sleep(for: .seconds(1))
+                guard !Task.isCancelled else { return }
+                withAnimation(.snappy) { expansion = nil }
+            }
+        }
+    }
+
+    /// `f(` grows into its signature help; `f()` has none to show.
+    private func apply(_ call: CodeSuggestion) {
+        withAnimation(.snappy) {
+            if call.text.hasSuffix("("), let signature = call.signature {
+                expansion = Expansion(id: call.text, signature: signature)
+            }
+            completer?.apply(call.text)
         }
     }
 }

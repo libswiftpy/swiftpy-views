@@ -10,7 +10,7 @@ import Testing
 struct CompletionFormatStyleTests {
     @Test("Formats raw completions for display", arguments: [
         ("\t", "tab"),          // tab fallback
-        ("print(", "print()"),  // argument-taking callable closes its paren
+        ("print(", "print(...)"), // argument-taking callable shows it takes some
         ("clear()", "clear()"), // zero-argument callable is shown as-is
         ("value", "value"),     // non-callable stays plain
     ])

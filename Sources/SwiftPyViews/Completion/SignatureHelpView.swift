@@ -12,7 +12,7 @@ import AppKit
 import UIKit
 #endif
 
-public struct CodeSignature: Sendable, Equatable {
+public struct CodeSignature: Sendable, Hashable {
     public let label: String
     /// UTF-16 range within the signature label.
     public let activeParameter: NSRange?

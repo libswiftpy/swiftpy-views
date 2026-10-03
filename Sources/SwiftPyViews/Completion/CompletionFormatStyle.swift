@@ -7,14 +7,14 @@ import Foundation
 
 /// Formats a raw completion for display in the suggestion list.
 ///
-/// The tab fallback reads as "tab", and rlcompleter leaves an argument-taking
-/// callable's paren open (`print(`), so it is closed to read `print()`.
+/// The tab fallback reads as "tab", and a callable whose paren is left open
+/// for arguments (`print(`) reads `print(...)`, unlike one without (`clear()`).
 public struct CompletionFormatStyle: FormatStyle {
     public init() {}
 
     public func format(_ value: String) -> String {
         if value == "\t" { return "tab" }
-        return value.hasSuffix("(") ? value + ")" : value
+        return value.hasSuffix("(") ? value + "...)" : value
     }
 }
 
