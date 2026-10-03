@@ -54,6 +54,7 @@ struct CodeTextView {
     struct Mark: Equatable {
         let range: NSRange
         let color: Color
+        let style: CodeMarker.Style
     }
 
     /// Which edges have code beyond them, so the gutter's glass and the
@@ -156,10 +157,11 @@ private extension NSTextLayoutFragment {
 private extension CodeTextView {
     /// Colors the text in place. Assigning an attributed string instead would
     /// reset the selection, the scroll offset and the undo stack.
-    func applyHighlight(to storage: NSTextStorage) {
+    @discardableResult
+    func applyHighlight(to storage: NSTextStorage) -> Bool {
         // The tokens can be a keystroke behind what is on screen; leaving the
         // stale colors alone reads better than flattening the whole text.
-        guard let tokens else { return }
+        guard let tokens else { return false }
 
         let length = storage.length
         storage.beginEditing()
@@ -172,20 +174,32 @@ private extension CodeTextView {
             )
         }
         storage.endEditing()
+        return true
     }
 
-    /// Underlines in place, over whatever colors the highlight left.
-    func applyMarks(to storage: NSTextStorage) {
+    /// Underlines in place, over whatever colors the highlight left; fades
+    /// only colors it just reset, as fading faded ones would darken them.
+    func applyMarks(to storage: NSTextStorage, fading: Bool) {
         let length = storage.length
         let whole = NSRange(location: 0, length: length)
         storage.beginEditing()
         storage.removeAttribute(.underlineStyle, range: whole)
         storage.removeAttribute(.underlineColor, range: whole)
         for mark in marks where NSMaxRange(mark.range) <= length {
-            storage.addAttributes([
-                .underlineStyle: NSUnderlineStyle.single.rawValue,
-                .underlineColor: PlatformColor(mark.color),
-            ], range: mark.range)
+            switch mark.style {
+            case .underline:
+                storage.addAttributes([
+                    .underlineStyle: NSUnderlineStyle.single.rawValue,
+                    .underlineColor: PlatformColor(mark.color),
+                ], range: mark.range)
+            case .faded where fading:
+                storage.enumerateAttribute(.foregroundColor, in: mark.range) { color, range, _ in
+                    guard let color = color as? PlatformColor else { return }
+                    storage.addAttribute(.foregroundColor, value: color.withAlphaComponent(0.45), range: range)
+                }
+            case .faded:
+                break
+            }
         }
         storage.endEditing()
     }
@@ -708,8 +722,8 @@ extension CodeTextView: UIViewRepresentable {
             textView.setNeedsDisplay()
         }
         if let storage = textView.textLayoutManager?.codeTextStorage {
-            applyHighlight(to: storage)
-            applyMarks(to: storage)
+            let highlighted = applyHighlight(to: storage)
+            applyMarks(to: storage, fading: highlighted)
         }
         textView.typingAttributes = Self.textAttributes
 
@@ -946,8 +960,8 @@ extension CodeTextView: NSViewRepresentable {
             textView.needsDisplay = true
         }
         if let storage = textView.textLayoutManager?.codeTextStorage {
-            applyHighlight(to: storage)
-            applyMarks(to: storage)
+            let highlighted = applyHighlight(to: storage)
+            applyMarks(to: storage, fading: highlighted)
         }
         textView.typingAttributes = Self.textAttributes
 

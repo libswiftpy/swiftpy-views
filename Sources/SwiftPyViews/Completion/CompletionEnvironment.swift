@@ -25,11 +25,10 @@ public struct CompletionBar: View {
     /// A tapped call's signature help, shown until pyright's own arrives.
     private struct Expansion: Equatable {
         let id: String
-        let signature: CodeSignature
+        let signature: CodeSignatureHelp
     }
 
     @Environment(\.codeCompleter) private var completer
-    @Namespace private var namespace
     @State private var expansion: Expansion?
 
     public init() {}
@@ -45,7 +44,6 @@ public struct CompletionBar: View {
                     SwiftUI.HStack {
                         ForEach(calls, id: \.text) { call in
                             SuggestionChip(suggestion: call) { apply(call) }
-                                .matchedGeometryEffect(id: call.text, in: namespace)
                         }
                     }
                     .padding(.horizontal, 8)
@@ -54,8 +52,10 @@ public struct CompletionBar: View {
                     .buttonBorderShape(.capsule)
                     .monospaced()
                 } else if let signature = completer?.signature ?? expansion?.signature {
-                    SignatureHelpView(signature: signature)
-                        .matchedGeometryEffect(id: expansion?.id ?? "signature", in: namespace)
+                    // Grows from where the chip was. Only drawn scaled: a matched
+                    // geometry gave it the chip's width to wrap the signature in.
+                    SignatureHelpView(help: signature)
+                        .transition(.scale(scale: 0.4, anchor: .topLeading).combined(with: .opacity))
                 }
                 CompletionsView(completions: completions.filter { $0.signature == nil }) { suggestion in
                     completer?.apply(suggestion.text)

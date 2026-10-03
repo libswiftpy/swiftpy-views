@@ -14,6 +14,32 @@ struct CodeEditorTests {
         #expect(editor.cursor == editor.source.index(editor.source.startIndex, offsetBy: 2))
     }
 
+    @Test func markersKeepTheirStyle() {
+        let editor = CodeEditor(source: "import json")
+        editor.setMarkers([
+            CodeMarker(line: 1, column: 8, endLine: 1, endColumn: 12, style: .faded),
+            CodeMarker(line: 1, column: 1, endLine: 1, endColumn: 7, color: .red),
+        ], for: editor.source)
+        #expect(editor.marked.marks.map(\.style) == [.faded, .underline])
+        #expect(editor.marked.marks.first?.range == NSRange(location: 7, length: 4))
+    }
+
+    @Test func fadedMarksMoveWithTheTextAndUnderlinesGo() {
+        let editor = CodeEditor(source: "import json\nx = 1")
+        editor.setMarkers([
+            CodeMarker(line: 1, column: 8, endLine: 1, endColumn: 12, style: .faded),
+            CodeMarker(line: 2, column: 1, endLine: 2, endColumn: 2, color: .red),
+        ], for: editor.source)
+
+        editor.source = "# top\nimport json\nx = 1"
+        #expect(editor.marked.source == editor.source)
+        #expect(editor.marked.marks.map(\.range) == [NSRange(location: 13, length: 4)])
+
+        // An edit inside the faded name drops it.
+        editor.source = "# top\nimport jsn\nx = 1"
+        #expect(editor.marked.marks.isEmpty)
+    }
+
     @Test func cursorIsNilForARangeSelection() {
         let editor = CodeEditor(source: "print(1)")
         editor.selection = NSRange(location: 0, length: 5)
@@ -95,6 +121,13 @@ struct SignatureHelpTests {
         #expect(lines.allSatisfy { $0.height > 0 })
     }
 
+    @Test func overloadsKeepTheSelectedOneOrFallBackToTheFirst() throws {
+        let one = CodeSignature(label: "(a: int)"), two = CodeSignature(label: "(a: str, b: str)")
+        #expect(try #require(CodeSignatureHelp(signatures: [one, two], selected: 1)).current == two)
+        #expect(try #require(CodeSignatureHelp(signatures: [one, two], selected: 5)).current == one)
+        #expect(CodeSignatureHelp(signatures: []) == nil)
+    }
+
     @Test func widerSignaturesNeedFewerLinesAndLargeTextNeedsMore() {
         let signature = CodeSignature(label: "(first: str, second: str, third: bool = False) -> None")
         let narrow = SignatureLine.wrap(signature, width: 200, fontSize: 13)
@@ -153,7 +186,7 @@ struct SignatureHelpTests {
         #expect(CodeCompletion.query(in: editor.source, at: try #require(editor.cursor)).isEmpty)
         provider.respond(0, with: CodeSignature(label: "(name: str)"))
         try await wait { completer.signature != nil }
-        #expect(completer.signature?.label == "(name: str)")
+        #expect(completer.signature?.current.label == "(name: str)")
         completer.reset()
     }
 
@@ -172,7 +205,7 @@ struct SignatureHelpTests {
         completer.update(editor, source: editor.source, cursor: editor.cursor)
         try await wait { provider.requests.count == 2 }
         provider.respond(1, with: CodeSignature(label: "(a: int, b: int)", activeParameter: NSRange(location: 9, length: 6)))
-        try await wait { completer.signature?.activeParameter?.location == 9 }
+        try await wait { completer.signature?.current.activeParameter?.location == 9 }
         editor.focus()
         completer.update(editor, source: editor.source, cursor: editor.cursor)
         try await wait { provider.requests.count == 3 }
@@ -195,10 +228,10 @@ struct SignatureHelpTests {
         completer.update(editor, source: editor.source, cursor: editor.cursor)
         try await wait { provider.requests.count == 2 }
         provider.respond(1, with: CodeSignature(label: "new"))
-        try await wait { completer.signature?.label == "new" }
+        try await wait { completer.signature?.current.label == "new" }
         provider.respond(0, with: CodeSignature(label: "old"))
         try await wait { provider.finished == 2 }
-        #expect(completer.signature?.label == "new")
+        #expect(completer.signature?.current.label == "new")
         completer.reset()
     }
 
@@ -241,14 +274,14 @@ private final class SignatureProvider: CompletionProvider {
     struct Request {
         let source: String
         let offset: Int
-        let continuation: CheckedContinuation<CodeSignature?, Never>
+        let continuation: CheckedContinuation<CodeSignatureHelp?, Never>
     }
     var requests: [Request] = []
     var finished = 0
 
     func completions(in editor: CodeEditor, source: String, cursor: String.Index) async -> [CodeSuggestion] { [] }
 
-    func signatureHelp(in editor: CodeEditor, source: String, cursor: String.Index) async -> CodeSignature? {
+    func signatureHelp(in editor: CodeEditor, source: String, cursor: String.Index) async -> CodeSignatureHelp? {
         let result = await withCheckedContinuation { continuation in
             requests.append(Request(
                 source: source, offset: cursor.utf16Offset(in: source), continuation: continuation
@@ -259,7 +292,7 @@ private final class SignatureProvider: CompletionProvider {
     }
 
     func respond(_ index: Int, with signature: CodeSignature?) {
-        requests[index].continuation.resume(returning: signature)
+        requests[index].continuation.resume(returning: signature.map(CodeSignatureHelp.init))
     }
 }
 

@@ -18,9 +18,9 @@ public struct CodeSuggestion: Hashable, Sendable {
     public let kind: Kind?
     /// What a call suggestion calls: it's shown above the others, where the
     /// signature help it turns into will be.
-    public let signature: CodeSignature?
+    public let signature: CodeSignatureHelp?
 
-    public init(text: String, kind: Kind? = nil, signature: CodeSignature? = nil) {
+    public init(text: String, kind: Kind? = nil, signature: CodeSignatureHelp? = nil) {
         self.text = text
         self.kind = kind
         self.signature = signature

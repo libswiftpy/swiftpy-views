@@ -50,6 +50,26 @@ public struct CodeSignature: Sendable, Hashable {
     }
 }
 
+/// A call's overloads, with the one its arguments match selected.
+public struct CodeSignatureHelp: Sendable, Hashable {
+    public let signatures: [CodeSignature]
+    public let selected: Int
+
+    public var current: CodeSignature { signatures[selected] }
+
+    /// Nil without signatures; an out-of-range `selected` picks the first.
+    public init?(signatures: [CodeSignature], selected: Int = 0) {
+        guard !signatures.isEmpty else { return nil }
+        self.signatures = signatures
+        self.selected = signatures.indices.contains(selected) ? selected : 0
+    }
+
+    public init(_ signature: CodeSignature) {
+        signatures = [signature]
+        selected = 0
+    }
+}
+
 internal struct SignatureLine: Equatable, Identifiable {
     let range: NSRange
     let height: CGFloat
@@ -90,7 +110,7 @@ internal struct SignatureLine: Equatable, Identifiable {
 }
 
 internal struct SignatureHelpView: View {
-    let signature: CodeSignature
+    let help: CodeSignatureHelp
 
     @Environment(\.colorScheme) private var colorScheme
     #if os(macOS)
@@ -99,8 +119,17 @@ internal struct SignatureHelpView: View {
     @ScaledMetric(relativeTo: .body) private var fontSize: CGFloat = 17
     #endif
     @State private var width: CGFloat = 0
+    @State private var stepperWidth: CGFloat = 0
     @State private var highlightedLabel = ""
     @State private var tokens: [CodeToken] = []
+    /// The overload stepped to, kept over pyright's pick until the overloads change.
+    @State private var picked: Int?
+
+    private var index: Int {
+        picked.flatMap { help.signatures.indices.contains($0) ? $0 : nil } ?? help.selected
+    }
+
+    private var signature: CodeSignature { help.signatures[index] }
 
     private var activeText: String? {
         guard let range = signature.activeParameter.flatMap({ Range($0, in: signature.label) }) else { return nil }
@@ -108,7 +137,35 @@ internal struct SignatureHelpView: View {
     }
 
     var body: some View {
-        let lines = SignatureLine.wrap(signature, width: max(1, width - 24), fontSize: fontSize)
+        let stepper = help.signatures.count > 1 ? stepperWidth + 8 : 0
+        // A floor: wrapping a long signature into a sliver lays out a line per character.
+        let lines = SignatureLine.wrap(signature, width: max(120, width - 24 - stepper), fontSize: fontSize)
+        SwiftUI.HStack(alignment: .top, spacing: 8) {
+            details(lines)
+            if help.signatures.count > 1 {
+                overloads
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .frame(width: lines.count == 1 ? min(width, (lines.first?.width ?? 0) + 24 + stepper) : width)
+        .glassBackground(in: .rect(cornerRadius: 16))
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
+        .padding(.horizontal, 8)
+        .padding(.top, 8)
+        .font(.system(size: fontSize, design: .monospaced))
+        .onChange(of: help.signatures) { picked = nil }
+        .task(id: signature.label) {
+            let label = signature.label
+            let result = await CodeHighlighter.shared.tokens(for: label, language: "python")
+            guard !Task.isCancelled else { return }
+            tokens = result
+            highlightedLabel = label
+        }
+    }
+
+    private func details(_ lines: [SignatureLine]) -> some View {
         let formatted = signature.formatted(
             tokens: highlightedLabel == signature.label ? tokens : [],
             colorScheme: colorScheme,
@@ -118,7 +175,7 @@ internal struct SignatureHelpView: View {
             guard let active = signature.activeParameter else { return false }
             return NSLocationInRange(active.location, $0.range)
         }?.id ?? lines.first?.id
-        SwiftUI.VStack(alignment: .leading, spacing: 4) {
+        return SwiftUI.VStack(alignment: .leading, spacing: 4) {
             ScrollViewReader { proxy in
                 SwiftUI.ScrollView(.vertical) {
                     SwiftUI.VStack(alignment: .leading, spacing: 0) {
@@ -152,15 +209,6 @@ internal struct SignatureHelpView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-        .frame(width: lines.count == 1 ? min(width, (lines.first?.width ?? 0) + 24) : width)
-        .glassBackground(in: .rect(cornerRadius: 16))
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
-        .padding(.horizontal, 8)
-        .padding(.top, 8)
-        .font(.system(size: fontSize, design: .monospaced))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(SwiftUI.Text(verbatim: signature.label))
         .accessibilityValue(activeText.map {
@@ -168,13 +216,30 @@ internal struct SignatureHelpView: View {
         } ?? SwiftUI.Text(""))
         .accessibilityHint(SwiftUI.Text(signature.parameterDocumentation ?? ""))
         .accessibilityIdentifier("SignatureHelp")
-        .task(id: signature.label) {
-            let label = signature.label
-            let result = await CodeHighlighter.shared.tokens(for: label, language: "python")
-            guard !Task.isCancelled else { return }
-            tokens = result
-            highlightedLabel = label
+    }
+
+    /// Which overload shows, and the stepper that moves through them.
+    private var overloads: some View {
+        SwiftUI.HStack(spacing: 4) {
+            SwiftUI.Text(verbatim: "\(index + 1)/\(help.signatures.count)")
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+            SwiftUI.Stepper(
+                value: Binding { index } set: { picked = $0 },
+                in: 0...(help.signatures.count - 1)
+            ) {
+                SwiftUI.Text("Overload", bundle: .module, comment: "VoiceOver label of the stepper through a function's signatures.")
+            }
+            .labelsHidden()
+            .accessibilityValue(SwiftUI.Text(
+                "\(index + 1) of \(help.signatures.count)", bundle: .module,
+                comment: "VoiceOver value of the overload stepper: the shown signature, of how many."
+            ))
         }
+        .controlSize(.small)
+        .fixedSize()
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { stepperWidth = $0 }
     }
 }
 
@@ -182,18 +247,21 @@ internal struct SignatureHelpView: View {
     let label = "(name: str, count: int = 1, separator: str = ', ', flush: bool = False) -> str"
     SwiftUI.VStack(spacing: 24) {
         SwiftUI.VStack(alignment: .leading, spacing: 0) {
-            SignatureHelpView(signature: CodeSignature(
-                label: label, activeParameter: (label as NSString).range(of: "count: int = 1"),
-                parameterDocumentation: "How many times to repeat the greeting."
-            ))
+            SignatureHelpView(help: CodeSignatureHelp(signatures: [
+                CodeSignature(label: "(name: str) -> str"),
+                CodeSignature(
+                    label: label, activeParameter: (label as NSString).range(of: "count: int = 1"),
+                    parameterDocumentation: "How many times to repeat the greeting."
+                ),
+            ], selected: 1)!)
             CompletionsView(completions: ["count", "counter"]) { _ in }
         }
         .environment(\.colorScheme, .light)
         .background(Color(CodePalette.xcode.background(in: .light)))
         SwiftUI.VStack(alignment: .leading, spacing: 0) {
-            SignatureHelpView(signature: CodeSignature(
+            SignatureHelpView(help: CodeSignatureHelp(CodeSignature(
                 label: label, activeParameter: (label as NSString).range(of: "flush: bool = False")
-            ))
+            )))
             CompletionsView(completions: ["False", "True"]) { _ in }
         }
         .environment(\.colorScheme, .dark)

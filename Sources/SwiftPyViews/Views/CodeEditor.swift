@@ -13,21 +13,29 @@ import Observation
 /// A span of code to underline, in the 1-based lines and columns a diagnostic
 /// reports (columns in UTF-16, the end exclusive).
 public struct CodeMarker: Equatable {
+    public enum Style: Sendable {
+        case underline
+        /// The code's own colors, faded: what's unused or unreachable.
+        case faded
+    }
+
     public var line: Int
     public var column: Int
     public var endLine: Int
     public var endColumn: Int
     public var color: Color
+    public var style: Style
 
     /// Width of one character of the editor's code, to place what points at it.
     @MainActor public static var characterAdvance: CGFloat { CodeTextView.characterAdvance }
 
-    public init(line: Int, column: Int, endLine: Int, endColumn: Int, color: Color) {
+    public init(line: Int, column: Int, endLine: Int, endColumn: Int, color: Color = .clear, style: Style = .underline) {
         self.line = line
         self.column = column
         self.endLine = endLine
         self.endColumn = endColumn
         self.color = color
+        self.style = style
     }
 }
 
@@ -36,7 +44,13 @@ public struct CodeMarker: Equatable {
 @MainActor
 @Observable
 public final class CodeEditor {
-    public var source: String
+    public var source: String {
+        didSet {
+            if source != oldValue, marked.source == oldValue {
+                marked = marked.carried(to: source)
+            }
+        }
+    }
     public var isEditable: Bool
     /// Enter carries the indentation down, and backspace in a line's leading
     /// whitespace takes a level off.
@@ -64,6 +78,27 @@ public final class CodeEditor {
     internal struct Marked {
         var source = ""
         var marks: [CodeTextView.Mark] = []
+
+        /// The faded marks the edit to `new` left alone, moved with the text
+        /// after it, until the next markers. An underline goes: what it
+        /// reported may be what's being fixed.
+        func carried(to new: String) -> Marked {
+            let old = Array(source.utf16), edited = Array(new.utf16)
+            let prefix = zip(old, edited).prefix { $0 == $1 }.count
+            let room = min(old.count, edited.count) - prefix
+            let suffix = zip(old.reversed(), edited.reversed()).prefix(room).prefix { $0 == $1 }.count
+            let shift = edited.count - old.count
+            let kept: [CodeTextView.Mark] = marks.compactMap { mark in
+                guard mark.style == .faded else { return nil }
+                if NSMaxRange(mark.range) <= prefix { return mark }
+                guard mark.range.location >= old.count - suffix else { return nil }
+                return CodeTextView.Mark(
+                    range: NSRange(location: mark.range.location + shift, length: mark.range.length),
+                    color: mark.color, style: mark.style
+                )
+            }
+            return Marked(source: new, marks: kept)
+        }
     }
 
     public init(
@@ -155,7 +190,9 @@ public final class CodeEditor {
             // A span with no width, or past the end, still marks a character.
             if start >= text.length { start = text.length - 1 }
             if end <= start { end = start + 1 }
-            return CodeTextView.Mark(range: NSRange(location: start, length: end - start), color: marker.color)
+            return CodeTextView.Mark(
+                range: NSRange(location: start, length: end - start), color: marker.color, style: marker.style
+            )
         }
         marked = Marked(source: source, marks: marks)
     }

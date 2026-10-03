@@ -19,11 +19,11 @@ public protocol CompletionProvider: AnyObject {
     /// Suggestions for the identifier ending at `cursor`, each replacing it
     /// whole, as ``CodeCompletion/apply(_:to:at:indent:)`` does.
     func completions(in editor: CodeEditor, source: String, cursor: String.Index) async -> [CodeSuggestion]
-    func signatureHelp(in editor: CodeEditor, source: String, cursor: String.Index) async -> CodeSignature?
+    func signatureHelp(in editor: CodeEditor, source: String, cursor: String.Index) async -> CodeSignatureHelp?
 }
 
 public extension CompletionProvider {
-    func signatureHelp(in editor: CodeEditor, source: String, cursor: String.Index) async -> CodeSignature? {
+    func signatureHelp(in editor: CodeEditor, source: String, cursor: String.Index) async -> CodeSignatureHelp? {
         nil
     }
 }
@@ -37,7 +37,7 @@ public extension CompletionProvider {
 @Observable
 public final class CodeCompleter {
     public private(set) var completions: [CodeSuggestion] = []
-    public private(set) var signature: CodeSignature?
+    public private(set) var signature: CodeSignatureHelp?
     @ObservationIgnored private var signatureRequest: Task<Void, Never>?
     /// An editor holds the caret, which is what puts the input field into its
     /// completing state.
