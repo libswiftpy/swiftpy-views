@@ -1,5 +1,7 @@
 import Testing
 import Foundation
+import SwiftUI
+import SyntaxHighlight
 @testable import SwiftPyViews
 
 @MainActor
@@ -76,6 +78,188 @@ struct CodeEditorTests {
         editor.apply("ranges")
 
         #expect(editor.source == "ran = 1")
+    }
+}
+
+@MainActor
+struct SignatureHelpTests {
+    @Test func wrappingPreservesAllTextAndFindsTheActiveLine() throws {
+        let label = "(name: str = '👍', count: int = 1, separator: str = ', ', flush: bool = False) -> str"
+        let signature = CodeSignature(label: label, activeParameter: (label as NSString).range(of: "flush: bool = False"))
+        let lines = SignatureLine.wrap(signature, width: 160, fontSize: 17)
+        #expect(lines.count > 3)
+        #expect(lines.map { (label as NSString).substring(with: $0.range) }.joined() == label)
+        let active = try #require(signature.activeParameter)
+        let activeLine = try #require(lines.firstIndex { NSLocationInRange(active.location, $0.range) })
+        #expect(activeLine >= 3)
+        #expect(lines.allSatisfy { $0.height > 0 })
+    }
+
+    @Test func widerSignaturesNeedFewerLinesAndLargeTextNeedsMore() {
+        let signature = CodeSignature(label: "(first: str, second: str, third: bool = False) -> None")
+        let narrow = SignatureLine.wrap(signature, width: 200, fontSize: 13)
+        let wide = SignatureLine.wrap(signature, width: 1000, fontSize: 13)
+        let large = SignatureLine.wrap(signature, width: 200, fontSize: 30)
+        #expect(wide.count == 1)
+        #expect(narrow.count > wide.count)
+        #expect(large.count > narrow.count)
+    }
+
+    @Test func longIdentifiersWrapWithoutDroppingCharacters() {
+        let label = "(" + String(repeating: "veryLongParameter", count: 12) + ": str)"
+        let lines = SignatureLine.wrap(CodeSignature(label: label), width: 100, fontSize: 17)
+        #expect(lines.count > 3)
+        #expect(lines.map { (label as NSString).substring(with: $0.range) }.joined() == label)
+    }
+
+    @Test func emphasisPreservesSyntaxColorsAndUnicode() throws {
+        let label = "(a: str = '👍', b: int)"
+        let range = (label as NSString).range(of: "b: int")
+        let signature = CodeSignature(label: label, activeParameter: range)
+        let formatted = signature.formatted(
+            tokens: [CodeToken(range: range, scope: .type)], colorScheme: .dark
+        )
+        let stringRange = try #require(Range(range, in: label))
+        let active = try #require(Range(stringRange, in: formatted))
+        #expect(String(formatted.characters) == label)
+        #expect(formatted[active].font == .system(.body, design: .monospaced).bold())
+        #expect(formatted[active].underlineStyle == .single)
+        #expect(formatted[active].foregroundColor == Color(CodePalette.xcode.color(for: .type, in: .dark)))
+        #expect(formatted[..<active.lowerBound].underlineStyle == nil)
+    }
+
+    @Test(arguments: [
+        NSRange(location: NSNotFound, length: 1),
+        NSRange(location: 1, length: Int.max),
+        NSRange(location: 0, length: 0),
+        NSRange(location: 2, length: 1),
+    ])
+    func invalidRangesAreIgnored(range: NSRange) {
+        #expect(CodeSignature(label: "(👍)", activeParameter: range).activeParameter == nil)
+    }
+
+    @Test func acceptingCallableRequestsHelpWithoutACompletionQuery() async throws {
+        let provider = SignatureProvider()
+        let completer = CodeCompleter()
+        completer.provider = provider
+        let editor = CodeEditor(source: "gre")
+        editor.focus()
+        completer.focus(editor)
+        completer.apply("greet(")
+        completer.update(editor, source: editor.source, cursor: editor.cursor)
+        try await wait { provider.requests.count == 1 }
+        #expect(provider.requests[0].source == "greet()")
+        #expect(provider.requests[0].offset == 6)
+        #expect(CodeCompletion.query(in: editor.source, at: try #require(editor.cursor)).isEmpty)
+        provider.respond(0, with: CodeSignature(label: "(name: str)"))
+        try await wait { completer.signature != nil }
+        #expect(completer.signature?.label == "(name: str)")
+        completer.reset()
+    }
+
+    @Test func caretMovementAndLeavingACallRefreshHelp() async throws {
+        let provider = SignatureProvider()
+        let completer = CodeCompleter()
+        completer.provider = provider
+        let editor = CodeEditor(source: "greet(1, 2)")
+        editor.selection = NSRange(location: 6, length: 0)
+        completer.focus(editor)
+        completer.update(editor, source: editor.source, cursor: editor.cursor)
+        try await wait { provider.requests.count == 1 }
+        provider.respond(0, with: CodeSignature(label: "(a: int, b: int)", activeParameter: NSRange(location: 1, length: 6)))
+        try await wait { completer.signature != nil }
+        editor.selection = NSRange(location: 9, length: 0)
+        completer.update(editor, source: editor.source, cursor: editor.cursor)
+        try await wait { provider.requests.count == 2 }
+        provider.respond(1, with: CodeSignature(label: "(a: int, b: int)", activeParameter: NSRange(location: 9, length: 6)))
+        try await wait { completer.signature?.activeParameter?.location == 9 }
+        editor.focus()
+        completer.update(editor, source: editor.source, cursor: editor.cursor)
+        try await wait { provider.requests.count == 3 }
+        provider.respond(2, with: nil)
+        try await wait { completer.signature == nil }
+        completer.reset()
+    }
+
+    @Test func lateResponsesCannotReplaceTheNewerRequest() async throws {
+        let provider = SignatureProvider()
+        let completer = CodeCompleter()
+        completer.provider = provider
+        let editor = CodeEditor(source: "greet(")
+        editor.focus()
+        completer.focus(editor)
+        completer.update(editor, source: editor.source, cursor: editor.cursor)
+        try await wait { provider.requests.count == 1 }
+        editor.source = "greet(1, "
+        editor.focus()
+        completer.update(editor, source: editor.source, cursor: editor.cursor)
+        try await wait { provider.requests.count == 2 }
+        provider.respond(1, with: CodeSignature(label: "new"))
+        try await wait { completer.signature?.label == "new" }
+        provider.respond(0, with: CodeSignature(label: "old"))
+        try await wait { provider.finished == 2 }
+        #expect(completer.signature?.label == "new")
+        completer.reset()
+    }
+
+    @Test(arguments: ["focus", "selection", "resign", "reset", "markdown"])
+    func invalidationDiscardsPendingHelp(reason: String) async throws {
+        let provider = SignatureProvider()
+        let completer = CodeCompleter()
+        completer.provider = provider
+        let editor = CodeEditor(source: "greet(")
+        editor.focus()
+        completer.focus(editor)
+        completer.update(editor, source: editor.source, cursor: editor.cursor)
+        try await wait { provider.requests.count == 1 }
+        switch reason {
+        case "focus": completer.focus(CodeEditor(source: "other("))
+        case "selection":
+            editor.selection = NSRange(location: 0, length: 2)
+            completer.update(editor, source: editor.source, cursor: editor.cursor)
+        case "resign": completer.resign(editor)
+        case "markdown": completer.focus(MarkdownEditor())
+        default: completer.reset()
+        }
+        provider.respond(0, with: CodeSignature(label: "stale"))
+        try await wait { provider.finished == 1 }
+        #expect(completer.signature == nil)
+        completer.reset()
+    }
+
+    private func wait(until condition: () -> Bool) async throws {
+        let deadline = ContinuousClock.now + .seconds(3)
+        while !condition(), ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        try #require(condition())
+    }
+}
+
+@MainActor
+private final class SignatureProvider: CompletionProvider {
+    struct Request {
+        let source: String
+        let offset: Int
+        let continuation: CheckedContinuation<CodeSignature?, Never>
+    }
+    var requests: [Request] = []
+    var finished = 0
+
+    func completions(in editor: CodeEditor, source: String, cursor: String.Index) async -> [String] { [] }
+
+    func signatureHelp(in editor: CodeEditor, source: String, cursor: String.Index) async -> CodeSignature? {
+        let result = await withCheckedContinuation { continuation in
+            requests.append(Request(
+                source: source, offset: cursor.utf16Offset(in: source), continuation: continuation
+            ))
+        }
+        finished += 1
+        return result
+    }
+
+    func respond(_ index: Int, with signature: CodeSignature?) {
+        requests[index].continuation.resume(returning: signature)
     }
 }
 

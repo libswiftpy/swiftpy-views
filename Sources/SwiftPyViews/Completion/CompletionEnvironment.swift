@@ -29,8 +29,13 @@ public struct CompletionBar: View {
     public var body: some View {
         // Not even the tab fallback: Markdown isn't indented by it.
         if completer?.isEditingMarkdown != true {
-            CompletionsView(completions: completer?.completions ?? []) { suggestion in
-                completer?.apply(suggestion)
+            SwiftUI.VStack(alignment: .leading, spacing: 0) {
+                if let signature = completer?.signature {
+                    SignatureHelpView(signature: signature)
+                }
+                CompletionsView(completions: completer?.completions ?? []) { suggestion in
+                    completer?.apply(suggestion)
+                }
             }
         }
     }

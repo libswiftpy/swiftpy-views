@@ -12,7 +12,8 @@ public struct CompletionsView: View {
     let completion: (String) -> Void
 
     public init(completions: [String], completion: @escaping (String) -> Void) {
-        self.completions = completions
+        var seen = Set<String>()
+        self.completions = completions.filter { seen.insert($0).inserted }
         self.completion = completion
     }
 

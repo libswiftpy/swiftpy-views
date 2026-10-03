@@ -19,6 +19,13 @@ public protocol CompletionProvider: AnyObject {
     /// Suggestions for the identifier ending at `cursor`, each replacing it
     /// whole, as ``CodeCompletion/apply(_:to:at:indent:)`` does.
     func completions(in editor: CodeEditor, source: String, cursor: String.Index) async -> [String]
+    func signatureHelp(in editor: CodeEditor, source: String, cursor: String.Index) async -> CodeSignature?
+}
+
+public extension CompletionProvider {
+    func signatureHelp(in editor: CodeEditor, source: String, cursor: String.Index) async -> CodeSignature? {
+        nil
+    }
 }
 
 /// The suggestions for whichever editor holds the caret.
@@ -30,6 +37,8 @@ public protocol CompletionProvider: AnyObject {
 @Observable
 public final class CodeCompleter {
     public private(set) var completions: [String] = []
+    public private(set) var signature: CodeSignature?
+    @ObservationIgnored private var signatureRequest: Task<Void, Never>?
     /// An editor holds the caret, which is what puts the input field into its
     /// completing state.
     public private(set) var isEditing = false
@@ -64,6 +73,7 @@ public final class CodeCompleter {
 
     /// The editor took the caret, so the suggestions are now its own.
     internal func focus(_ editor: CodeEditor) {
+        clearSignature()
         focused = editor
         focusedMarkdown = nil
         isEditingMarkdown = false
@@ -73,6 +83,7 @@ public final class CodeCompleter {
     }
 
     internal func focus(_ editor: MarkdownEditor) {
+        clearSignature()
         focused = nil
         // Nothing may be applied to the code editor left behind.
         target = nil
@@ -95,6 +106,7 @@ public final class CodeCompleter {
     /// button's action runs, and dropping it here would apply to nothing.
     internal func resign(_ editor: CodeEditor) {
         guard focused === editor else { return }
+        clearSignature()
         focused = nil
         isEditing = false
         completions = []
@@ -108,6 +120,7 @@ public final class CodeCompleter {
         guard focused === editor else { return }
 
         request?.cancel()
+        updateSignature(editor, source: source, cursor: cursor)
 
         guard let cursor else {
             completions = []
@@ -155,11 +168,34 @@ public final class CodeCompleter {
 
     /// The interpreter connection changed; nothing in flight belongs to it.
     public func reset() {
+        clearSignature()
         request?.cancel()
         events?.cancel()
         events = nil
         pending = nil
         completions = []
+    }
+
+    private func clearSignature() {
+        signatureRequest?.cancel()
+        signatureRequest = nil
+        signature = nil
+    }
+
+    private func updateSignature(_ editor: CodeEditor, source: String, cursor: String.Index?) {
+        signatureRequest?.cancel()
+        guard let cursor, let provider else {
+            clearSignature()
+            return
+        }
+        signatureRequest = Task { [weak self, weak editor] in
+            try? await Task.sleep(for: .milliseconds(100))
+            guard !Task.isCancelled, let editor else { return }
+            let signature = await provider.signatureHelp(in: editor, source: source, cursor: cursor)
+            guard !Task.isCancelled, self?.focused === editor,
+                  editor.source == source, editor.cursor == cursor else { return }
+            self?.signature = signature
+        }
     }
 
     private func send(_ query: String) async {
