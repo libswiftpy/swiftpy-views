@@ -119,17 +119,10 @@ internal struct SignatureHelpView: View {
     @ScaledMetric(relativeTo: .body) private var fontSize: CGFloat = 17
     #endif
     @State private var width: CGFloat = 0
-    @State private var stepperWidth: CGFloat = 0
     @State private var highlightedLabel = ""
     @State private var tokens: [CodeToken] = []
-    /// The overload stepped to, kept over pyright's pick until the overloads change.
-    @State private var picked: Int?
 
-    private var index: Int {
-        picked.flatMap { help.signatures.indices.contains($0) ? $0 : nil } ?? help.selected
-    }
-
-    private var signature: CodeSignature { help.signatures[index] }
+    private var signature: CodeSignature { help.current }
 
     private var activeText: String? {
         guard let range = signature.activeParameter.flatMap({ Range($0, in: signature.label) }) else { return nil }
@@ -137,25 +130,20 @@ internal struct SignatureHelpView: View {
     }
 
     var body: some View {
-        let stepper = help.signatures.count > 1 ? stepperWidth + 8 : 0
         // A floor: wrapping a long signature into a sliver lays out a line per character.
-        let lines = SignatureLine.wrap(signature, width: max(120, width - 24 - stepper), fontSize: fontSize)
-        SwiftUI.HStack(alignment: .top, spacing: 8) {
-            details(lines)
-            if help.signatures.count > 1 {
-                overloads
-            }
-        }
+        let lines = SignatureLine.wrap(signature, width: max(120, width - 24), fontSize: fontSize)
+        details(lines)
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
-        .frame(width: lines.count == 1 ? min(width, (lines.first?.width ?? 0) + 24 + stepper) : width)
+        .frame(width: lines.count == 1 ? min(width, (lines.first?.width ?? 0) + 24) : width)
         .glassBackground(in: .rect(cornerRadius: 16))
-        .frame(maxWidth: .infinity, alignment: .leading)
+        // The width offered, never the bubble's: once wider (a rotation),
+        // it would otherwise keep measuring itself and stay that wide.
+        .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
         .padding(.horizontal, 8)
         .padding(.top, 8)
         .font(.system(size: fontSize, design: .monospaced))
-        .onChange(of: help.signatures) { picked = nil }
         .task(id: signature.label) {
             let label = signature.label
             let result = await CodeHighlighter.shared.tokens(for: label, language: "python")
@@ -216,30 +204,6 @@ internal struct SignatureHelpView: View {
         } ?? SwiftUI.Text(""))
         .accessibilityHint(SwiftUI.Text(signature.parameterDocumentation ?? ""))
         .accessibilityIdentifier("SignatureHelp")
-    }
-
-    /// Which overload shows, and the stepper that moves through them.
-    private var overloads: some View {
-        SwiftUI.HStack(spacing: 4) {
-            SwiftUI.Text(verbatim: "\(index + 1)/\(help.signatures.count)")
-                .font(.caption.monospacedDigit())
-                .foregroundStyle(.secondary)
-                .accessibilityHidden(true)
-            SwiftUI.Stepper(
-                value: Binding { index } set: { picked = $0 },
-                in: 0...(help.signatures.count - 1)
-            ) {
-                SwiftUI.Text("Overload", bundle: .module, comment: "VoiceOver label of the stepper through a function's signatures.")
-            }
-            .labelsHidden()
-            .accessibilityValue(SwiftUI.Text(
-                "\(index + 1) of \(help.signatures.count)", bundle: .module,
-                comment: "VoiceOver value of the overload stepper: the shown signature, of how many."
-            ))
-        }
-        .controlSize(.small)
-        .fixedSize()
-        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { stepperWidth = $0 }
     }
 }
 
