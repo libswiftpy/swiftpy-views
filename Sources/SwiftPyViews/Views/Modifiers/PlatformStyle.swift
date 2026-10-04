@@ -7,8 +7,88 @@ import SwiftUI
 
 // Liquid Glass and a few related APIs are missing on visionOS, which has its
 // own glass built into the standard styles. Every platform difference of that
-// kind lives here, so views read the same everywhere. Surfaces inside a window
-// take a material there: its own glass on the window's glass barely shows.
+// kind lives here, so views read the same everywhere. Surfaces flat on a window
+// take a material there, as its glass on the window's glass barely shows; raised
+// ones take glass, as a material shows nothing with no window behind it.
+public extension EnvironmentValues {
+    /// Whether content is lifted off the window, which ``raisedOffWindow(by:)`` sets.
+    @Entry var surfacesAreRaised = false
+}
+
+public extension View {
+    /// Lifts the view toward the viewer on visionOS, its surfaces in glass.
+    /// Elsewhere, the view as it is.
+    func raisedOffWindow(by depth: CGFloat = 16) -> some View {
+        #if os(visionOS)
+        environment(\.surfacesAreRaised, true)
+            .offset(z: depth)
+        #else
+        self
+        #endif
+    }
+
+    /// The glass behind a surface on visionOS, by whether it's raised.
+    @ViewBuilder
+    private func visionSurface(in shape: some InsettableShape) -> some View {
+        #if os(visionOS)
+        modifier(VisionSurface(shape: shape))
+        #else
+        self
+        #endif
+    }
+}
+
+public extension View {
+    /// A suggestion chip's style: `.glass` where it exists; on visionOS, raised,
+    /// the glass the signature help above it has, else `.bordered`.
+    func glassChipStyle() -> some View {
+        #if os(visionOS)
+        modifier(VisionChipStyle())
+        #else
+        glassButtonStyle()
+        #endif
+    }
+}
+
+#if os(visionOS)
+private struct VisionChipStyle: ViewModifier {
+    @Environment(\.surfacesAreRaised) private var isRaised
+
+    func body(content: Content) -> some View {
+        if isRaised {
+            content.buttonStyle(RaisedGlassChip())
+        } else {
+            content.buttonStyle(.bordered)
+        }
+    }
+}
+
+private struct RaisedGlassChip: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .glassBackgroundEffect(in: .capsule)
+            .contentShape(.hoverEffect, .capsule)
+            .hoverEffect()
+            .opacity(configuration.isPressed ? 0.6 : 1)
+    }
+}
+
+private struct VisionSurface<S: InsettableShape>: ViewModifier {
+    let shape: S
+    @Environment(\.surfacesAreRaised) private var isRaised
+
+    func body(content: Content) -> some View {
+        if isRaised {
+            content.glassBackgroundEffect(in: shape)
+        } else {
+            content.background(.regularMaterial, in: shape)
+        }
+    }
+}
+#endif
+
 public extension View {
     /// `.glass` where it exists, `.bordered` on visionOS.
     func glassButtonStyle() -> some View {
@@ -35,7 +115,7 @@ public extension View {
                 .contentShape(.rect(cornerRadius: cornerRadius))
                 .onTapGesture(perform: onTap)
                 #if os(visionOS)
-                .background(.regularMaterial, in: .rect(cornerRadius: cornerRadius))
+                .visionSurface(in: .rect(cornerRadius: cornerRadius))
                 #else
                 .glassEffect(.regular.interactive(), in: .rect(cornerRadius: cornerRadius))
                 #endif
@@ -45,7 +125,7 @@ public extension View {
     /// A non-interactive glass background, in each platform's own glass.
     func glassBackground(in shape: some InsettableShape) -> some View {
         #if os(visionOS)
-        background(.regularMaterial, in: shape)
+        visionSurface(in: shape)
         #else
         glassEffect(in: shape)
         #endif

@@ -37,7 +37,7 @@ public struct CompletionsView: View {
                 }
             }
             .padding(8)
-            .glassButtonStyle()
+            .glassChipStyle()
             .buttonBorderShape(.capsule)
         }
         .monospaced()

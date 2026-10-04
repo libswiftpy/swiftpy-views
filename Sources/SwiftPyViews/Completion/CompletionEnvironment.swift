@@ -56,7 +56,7 @@ public struct CompletionBar<Leading: View, Trailing: View>: View {
                 }
                 .padding(.horizontal, 8)
                 .padding(.top, 8)
-                .glassButtonStyle()
+                .glassChipStyle()
                 .buttonBorderShape(.capsule)
                 .monospaced()
             } else if completes, let signature = completer?.signature ?? expansion?.signature {
