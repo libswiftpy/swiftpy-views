@@ -7,7 +7,8 @@ import SwiftUI
 
 // Liquid Glass and a few related APIs are missing on visionOS, which has its
 // own glass built into the standard styles. Every platform difference of that
-// kind lives here, so views read the same everywhere.
+// kind lives here, so views read the same everywhere. Surfaces inside a window
+// take a material there: its own glass on the window's glass barely shows.
 public extension View {
     /// `.glass` where it exists, `.bordered` on visionOS.
     func glassButtonStyle() -> some View {
@@ -34,7 +35,7 @@ public extension View {
                 .contentShape(.rect(cornerRadius: cornerRadius))
                 .onTapGesture(perform: onTap)
                 #if os(visionOS)
-                .glassBackgroundEffect(in: .rect(cornerRadius: cornerRadius))
+                .background(.regularMaterial, in: .rect(cornerRadius: cornerRadius))
                 #else
                 .glassEffect(.regular.interactive(), in: .rect(cornerRadius: cornerRadius))
                 #endif
@@ -42,10 +43,9 @@ public extension View {
     }
 
     /// A non-interactive glass background, in each platform's own glass.
-    /// visionOS insets its glass, so the shape has to be insettable.
     func glassBackground(in shape: some InsettableShape) -> some View {
         #if os(visionOS)
-        glassBackgroundEffect(in: shape)
+        background(.regularMaterial, in: shape)
         #else
         glassEffect(in: shape)
         #endif
