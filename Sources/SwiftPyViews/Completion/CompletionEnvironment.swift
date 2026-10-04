@@ -41,6 +41,10 @@ public struct CompletionBar<Leading: View, Trailing: View>: View {
         self.trailing = trailing()
     }
 
+    /// From the bar's edges. Inside the suggestions' scroll view, so they rest
+    /// inset but scroll to the edges rather than being cut off short of them.
+    private let inset: CGFloat = 8
+
     public var body: some View {
         // Not even the tab fallback: Markdown isn't indented by it.
         let completes = completer?.isEditingMarkdown != true
@@ -54,7 +58,7 @@ public struct CompletionBar<Leading: View, Trailing: View>: View {
                         SuggestionChip(suggestion: call) { apply(call) }
                     }
                 }
-                .padding(.horizontal, 8)
+                .padding(.horizontal, 8 + inset)
                 .padding(.top, 8)
                 .glassChipStyle()
                 .buttonBorderShape(.capsule)
@@ -63,16 +67,19 @@ public struct CompletionBar<Leading: View, Trailing: View>: View {
                 // Grows from where the chip was. Only drawn scaled: a matched
                 // geometry gave it the chip's width to wrap the signature in.
                 SignatureHelpView(help: signature)
+                    .padding(.horizontal, inset)
                     .transition(.scale(scale: 0.4, anchor: .topLeading).combined(with: .opacity))
             }
 
             SwiftUI.HStack(spacing: 0) {
+                // Its own inset: padding here would hold the space while it's empty.
                 leading
 
                 if completes {
                     CompletionsView(completions: completions.filter { $0.signature == nil }) { suggestion in
                         completer?.apply(suggestion.text)
                     }
+                    .contentMargins(.horizontal, inset, for: .scrollContent)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
@@ -80,6 +87,7 @@ public struct CompletionBar<Leading: View, Trailing: View>: View {
                 Spacer(minLength: 0)
 
                 trailing
+                    .padding(.trailing, inset)
             }
         }
         .onChange(of: completer?.signature) {
