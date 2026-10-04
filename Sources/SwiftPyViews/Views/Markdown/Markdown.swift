@@ -70,8 +70,7 @@ public struct MarkdownContent: View {
     private let linesTapAction: (@MainActor (Range<Int>) -> Void)?
 
     /// - Parameter onLinesTap: Reports the zero-based lines of `Markdown.text`
-    ///   holding the tapped block. Code blocks, quotes and tables don't report,
-    ///   nor does visionOS.
+    ///   holding the tapped block. Code blocks, quotes and tables don't report.
     public init(model: Markdown, onLinesTap: (@MainActor (Range<Int>) -> Void)? = nil) {
         self.model = model
         self.linesTapAction = onLinesTap
@@ -96,7 +95,6 @@ public struct MarkdownContent: View {
         // The format keeps lines, so a tapped block's lines are the segment's.
         let source = markdownSourceFormat?.format(segment.text) ?? segment.text
 
-        #if os(iOS) || os(macOS)
         if let linesTapAction {
             MarkdownText(source)
                 .onMarkdownBlockTap { range in
@@ -109,11 +107,6 @@ public struct MarkdownContent: View {
         } else {
             MarkdownText(source)
         }
-        #else
-        // Zeroed so both renderers take their heading spacing from `segments`.
-        MarkdownView(source)
-            .padding(EdgeInsets(), for: .h1, .h2, .h3, .h4, .h5, .h6)
-        #endif
     }
 
     private struct Segment: Identifiable {
