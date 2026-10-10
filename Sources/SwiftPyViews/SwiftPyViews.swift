@@ -16,6 +16,7 @@ public func initialize() {
             Window.self,
             CodeEditor.self,
             MarkdownEditor.self,
+            Slider.self,
         )
     }
 
