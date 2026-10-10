@@ -40,6 +40,20 @@ struct MarkdownEditorTests {
         #expect(coloredRuns(text).isEmpty)
     }
 
+    @Test func markedLinesGetTheirBackgroundNewlineIncluded() {
+        var text = AttributedString("same\nadded\nremoved\nsame")
+        MarkdownEditor.mark(&text, added: [1], removed: [2])
+
+        let marked = text.runs.compactMap { run in
+            run.backgroundColor.map { (String(text[run.range].characters), $0) }
+        }
+        #expect(marked.map(\.0) == ["added\n", "removed\n"])
+        #expect(marked.map(\.1) == [.green.opacity(0.25), .red.opacity(0.25)])
+
+        MarkdownEditor.mark(&text, added: [], removed: [])
+        #expect(text.runs.allSatisfy { $0.backgroundColor == nil })
+    }
+
     @Test func aHeadingIsHighlightedAsASection() async throws {
         let editor = MarkdownEditor(text: "# Title")
         let task = Task { await editor.highlight() }

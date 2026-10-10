@@ -18,6 +18,10 @@ import Observation
 public final class MarkdownEditor {
     public var text: String
     public var isEditable: Bool
+    /// Zero-based lines marked as added, with a green background.
+    public var addedLines: [Int] = []
+    /// Zero-based lines marked as removed, with a red background.
+    public var removedLines: [Int] = []
     /// The zero-based line of the caret while focused; nil for a range.
     public internal(set) var caretLine: Int?
 
@@ -71,6 +75,27 @@ public final class MarkdownEditor {
             text[attributedRange].foregroundColor = Color(
                 platformColor: CodePalette.xcode.color(for: token.scope, in: colorScheme)
             )
+        }
+    }
+
+    /// Gives the added and removed lines their background, newline included,
+    /// and clears it from the rest.
+    internal static func mark(_ text: inout AttributedString, added: [Int], removed: [Int]) {
+        text.backgroundColor = nil
+        guard !added.isEmpty || !removed.isEmpty else { return }
+        let added = Set(added), removed = Set(removed)
+        var start = text.startIndex
+        var line = 0
+        while start < text.endIndex {
+            let newline = text.characters[start...].firstIndex(of: "\n")
+            let end = newline.map { text.characters.index(after: $0) } ?? text.endIndex
+            if added.contains(line) {
+                text[start..<end].backgroundColor = .green.opacity(0.25)
+            } else if removed.contains(line) {
+                text[start..<end].backgroundColor = .red.opacity(0.25)
+            }
+            start = end
+            line += 1
         }
     }
 
@@ -192,6 +217,8 @@ public struct MarkdownEditorContent: View {
                 if characters != model.text { model.text = characters }
             }
             .onChange(of: model.highlighted) { applyHighlight() }
+            .onChange(of: model.addedLines) { applyHighlight() }
+            .onChange(of: model.removedLines) { applyHighlight() }
             .onChange(of: colorScheme) { applyHighlight() }
             .task {
                 await model.highlight()
@@ -207,15 +234,21 @@ public struct MarkdownEditorContent: View {
     /// it wasn't made from.
     private func applyHighlight() {
         let highlighted = model.highlighted
-        guard highlighted.text == String(text.characters) else { return }
+        // Tokens made from other text would color the wrong ranges; marks
+        // don't wait for them.
+        let isCurrent = highlighted.text == String(text.characters)
         text.transform(updating: &selection) { text in
-            MarkdownEditor.color(&text, by: highlighted.tokens, in: colorScheme)
+            if isCurrent {
+                MarkdownEditor.color(&text, by: highlighted.tokens, in: colorScheme)
+            }
+            MarkdownEditor.mark(&text, added: model.addedLines, removed: model.removedLines)
         }
     }
 }
 
 private struct MarkdownSourceAttributes: AttributeScope {
     let foregroundColor: AttributeScopes.SwiftUIAttributes.ForegroundColorAttribute
+    let backgroundColor: AttributeScopes.SwiftUIAttributes.BackgroundColorAttribute
 }
 
 extension Color {
