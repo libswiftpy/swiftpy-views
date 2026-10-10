@@ -212,8 +212,21 @@ public final class CodeEditor {
     }
 }
 
+/// Zero-based rows of code shown as a diff: added ones green, removed ones red
+/// and without a line number.
+public struct CodeDiffLines: Equatable, Sendable {
+    public var added: Set<Int>
+    public var removed: Set<Int>
+
+    public init(added: Set<Int> = [], removed: Set<Int> = []) {
+        self.added = added
+        self.removed = removed
+    }
+}
+
 public struct CodeEditorContent: View {
     @Bindable var model: CodeEditor
+    private let diff: CodeDiffLines?
 
     // Reported by the text view once it has laid the code out, so the numbers
     // sit on the same grid as the lines instead of a grid of their own.
@@ -225,8 +238,9 @@ public struct CodeEditorContent: View {
     // Read so the gutter is remeasured when the text size changes.
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    public init(model: CodeEditor) {
+    public init(model: CodeEditor, diff: CodeDiffLines? = nil) {
         self.model = model
+        self.diff = diff
     }
 
     public var body: some View {
@@ -288,6 +302,22 @@ public struct CodeEditorContent: View {
                     .allowsHitTesting(false)
             }
         }
+        // Behind the code, the full width of the card.
+        .backgroundPreferenceValue(LineNumberBoundsKey.self) { anchors in
+            if let diff {
+                GeometryReader { geometry in
+                    ForEach(Array(diff.added.union(diff.removed)), id: \.self) { row in
+                        if let anchor = anchors[row + 1] {
+                            let bounds = geometry[anchor]
+                            (diff.removed.contains(row) ? Color.red : Color.green)
+                                .opacity(0.25)
+                                .frame(width: geometry.size.width, height: bounds.height)
+                                .position(x: geometry.size.width / 2, y: bounds.midY)
+                        }
+                    }
+                }
+            }
+        }
         .background(Color(CodePalette.xcode.background(in: colorScheme)))
         // A window hands its whole space over; a card proposes no height and
         // the editor keeps the code's own.
@@ -295,16 +325,29 @@ public struct CodeEditorContent: View {
         .task {
             await model.highlight()
         }
-        .task(id: isFocused) {
-            guard isFocused, let completer else { return }
+        // Not while read-only: AppKit focuses a selectable text view too.
+        .task(id: isFocused && model.isEditable) {
+            guard isFocused, model.isEditable, let completer else { return }
             await model.complete(with: completer)
         }
     }
 
+    /// Each row's number; in a diff, removed rows have none and the rest are
+    /// numbered as the new code.
+    private func lineLabels(_ lines: Int) -> [String] {
+        var number = 0
+        return (0..<lines).map { row in
+            if diff?.removed.contains(row) == true { return "" }
+            number += 1
+            return "\(number)"
+        }
+    }
+
     private func lineNumbers(_ lines: Int) -> some View {
-        SwiftUI.VStack(alignment: .trailing, spacing: 0) {
+        let labels = lineLabels(lines)
+        return SwiftUI.VStack(alignment: .trailing, spacing: 0) {
             ForEach(1...lines, id: \.self) { line in
-                SwiftUI.Text("\(line)")
+                SwiftUI.Text(labels[line - 1])
                     .frame(height: lineHeight)
                     .anchorPreference(key: LineNumberBoundsKey.self, value: .bounds) { anchor in
                         [line: anchor]
