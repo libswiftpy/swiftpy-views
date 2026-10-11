@@ -100,6 +100,16 @@ enum ViewModifiers {
         }
 
         view.function(
+            "control_size(self, size: ControlSize | str) -> View",
+            "Sizes the buttons and other controls inside."
+        ) { receiver, args in
+            modify(receiver, args) { arguments in
+                let size = try ControlSize(pythonName: String.cast(arguments, 1))
+                return { AnyView($0.controlSize(size)) }
+            }
+        }
+
+        view.function(
             "disabled(self, disabled: bool = True) -> View",
             "Turns off the controls inside."
         ) { receiver, args in
@@ -129,6 +139,7 @@ enum ViewModifiers {
                     AnyView(view.toolbar {
                         ForEach(items.indices, id: \.self) { index in
                             items[index].asView
+                                .environment(\.isInToolbar, true)
                         }
                     })
                 }
@@ -150,4 +161,9 @@ private func modify(
         let content = try PyObject.cast(arguments, 0)
         return ModifiedView(content: content, modifier: try make(arguments))
     }
+}
+
+extension EnvironmentValues {
+    // Set on `toolbar` items, which the toolbar gives glass of its own.
+    @Entry var isInToolbar = false
 }

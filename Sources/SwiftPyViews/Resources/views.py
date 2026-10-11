@@ -1,6 +1,6 @@
 __doc__ = "Views to build user interfaces with."
 __all__ = [
-    "View", "Alignment", "Font", "Edges", "Axis", "PickerStyle", "ButtonRole", "Color",
+    "View", "Alignment", "Font", "Edges", "Axis", "PickerStyle", "ButtonRole", "ControlSize", "Color",
     "Text", "Markdown", "Image",
     "VStack", "HStack", "ZStack", "Group", "ScrollView", "Form", "Section", "Divider",
     "Button", "TextField", "Toggle", "Slider", "Stepper", "Picker", "ProgressView",
@@ -82,6 +82,15 @@ class ButtonRole(StrEnum):
     """What a `Button` is styled for."""
     DESTRUCTIVE = "destructive"
     CANCEL = "cancel"
+
+
+class ControlSize(StrEnum):
+    """How big `View.control_size` makes the controls inside, from the smallest."""
+    MINI = "mini"
+    SMALL = "small"
+    REGULAR = "regular"
+    LARGE = "large"
+    EXTRA_LARGE = "extra_large"
 
 
 class Color(StrEnum):

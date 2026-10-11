@@ -54,8 +54,26 @@ final class Button {
 private struct ButtonContent: View {
     let model: Button
     @State private var isProgressing = false
+    @Environment(\.isInToolbar) private var isInToolbar
 
     var body: some View {
+        // The glass style doesn't color a destructive role.
+        if role == .destructive {
+            styled.tint(.red)
+        } else {
+            styled
+        }
+    }
+
+    @ViewBuilder private var styled: some View {
+        if isInToolbar {
+            button
+        } else {
+            button.glassButtonStyle()
+        }
+    }
+
+    private var button: some View {
         SwiftUI.Button(role: role) {
             if let task = model.action?.callback() {
                 isProgressing = true
@@ -75,8 +93,6 @@ private struct ButtonContent: View {
                 .id(model.contentRevision)
         }
         .disabled(isProgressing)
-        .glassButtonStyle()
-        .controlSize(.extraLarge)
     }
 
     private var role: ButtonRole? {

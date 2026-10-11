@@ -84,3 +84,16 @@ extension Edge.Set {
         }
     }
 }
+
+extension ControlSize {
+    init(pythonName name: String) throws {
+        switch name {
+        case "mini": self = .mini
+        case "small": self = .small
+        case "regular": self = .regular
+        case "large": self = .large
+        case "extra_large": self = .extraLarge
+        default: throw PythonError(type: "ValueError", value: "unknown control size: \(name)")
+        }
+    }
+}
