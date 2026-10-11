@@ -224,9 +224,32 @@ public struct CodeDiffLines: Equatable, Sendable {
     }
 }
 
+/// How far an editor's code is scrolled sideways, for a host that points at a
+/// column. Published once, as `CodeScrollPositionKey`; the editor itself never
+/// reads it, so scrolling doesn't redraw it.
+@MainActor
+@Observable
+public final class CodeScrollPosition: Equatable {
+    public internal(set) var offset: CGFloat = 0
+
+    public nonisolated static func == (lhs: CodeScrollPosition, rhs: CodeScrollPosition) -> Bool {
+        lhs === rhs
+    }
+}
+
+public struct CodeScrollPositionKey: PreferenceKey {
+    public static let defaultValue: CodeScrollPosition? = nil
+
+    public static func reduce(value: inout CodeScrollPosition?, nextValue: () -> CodeScrollPosition?) {
+        value = value ?? nextValue()
+    }
+}
+
 public struct CodeEditorContent: View {
     @Bindable var model: CodeEditor
     private let diff: CodeDiffLines?
+    private let gutterMark: (Int) -> AnyView?
+    @State private var scrollPosition = CodeScrollPosition()
 
     // Reported by the text view once it has laid the code out, so the numbers
     // sit on the same grid as the lines instead of a grid of their own.
@@ -238,9 +261,16 @@ public struct CodeEditorContent: View {
     // Read so the gutter is remeasured when the text size changes.
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    public init(model: CodeEditor, diff: CodeDiffLines? = nil) {
+    /// - Parameter gutterMark: A view to show in a line's place in the gutter,
+    ///   by 1-based line, such as a diagnostic's symbol; it takes the taps there.
+    public init(
+        model: CodeEditor,
+        diff: CodeDiffLines? = nil,
+        gutterMark: @escaping (Int) -> AnyView? = { _ in nil }
+    ) {
         self.model = model
         self.diff = diff
+        self.gutterMark = gutterMark
     }
 
     public var body: some View {
@@ -270,7 +300,8 @@ public struct CodeEditorContent: View {
                 if $0 { model.wantsFocus = false }
             },
             onLineHeight: { lineHeight = $0 },
-            onScrollEdges: { scrollEdges = $0 }
+            onScrollEdges: { scrollEdges = $0 },
+            onScrollOffset: { [scrollPosition] in scrollPosition.offset = $0 }
         )
         // A shadow where the code carries on past the trailing edge, to say so.
         .overlay(alignment: .trailing) {
@@ -286,7 +317,7 @@ public struct CodeEditorContent: View {
         }
         .overlay(alignment: .topLeading) {
             if lineHeight > 0 {
-                lineNumbers(lineCount)
+                lineNumbers(lineCount, gutterWidth: gutterWidth)
                     .frame(width: gutterWidth, alignment: .topTrailing)
                     .frame(maxHeight: .infinity, alignment: .top)
                     // Glass only while there is code behind it to separate from.
@@ -295,13 +326,13 @@ public struct CodeEditorContent: View {
                             Color.clear
                                 .glassBackground(in: .rect)
                                 .transition(.opacity)
+                                .allowsHitTesting(false)
                         }
                     }
                     .animation(.default, value: scrollEdges.leading)
-                    // The gutter is decoration: taps belong to the editor underneath.
-                    .allowsHitTesting(false)
             }
         }
+        .preference(key: CodeScrollPositionKey.self, value: scrollPosition)
         // Behind the code, the full width of the card.
         .backgroundPreferenceValue(LineNumberBoundsKey.self) { anchors in
             if let diff {
@@ -343,14 +374,30 @@ public struct CodeEditorContent: View {
         }
     }
 
-    private func lineNumbers(_ lines: Int) -> some View {
+    private func lineNumbers(_ lines: Int, gutterWidth: CGFloat) -> some View {
         let labels = lineLabels(lines)
         return SwiftUI.VStack(alignment: .trailing, spacing: 0) {
             ForEach(1...lines, id: \.self) { line in
+                let mark = gutterMark(line)
+                // A mark keeps the number's place, so the line's bounds stay.
                 SwiftUI.Text(labels[line - 1])
+                    .opacity(mark == nil ? 1 : 0)
                     .frame(height: lineHeight)
+                    // The numbers are decoration: taps belong to the code.
+                    .allowsHitTesting(false)
                     .anchorPreference(key: LineNumberBoundsKey.self, value: .bounds) { anchor in
                         [line: anchor]
+                    }
+                    // Centered on the number, which is centered in the gutter.
+                    .overlay {
+                        if let mark {
+                            mark
+                                .frame(width: gutterWidth, height: lineHeight)
+                                // A little taller to tap than the line.
+                                .padding(.vertical, 6)
+                                .contentShape(.rect)
+                                .padding(.vertical, -6)
+                        }
                     }
             }
         }

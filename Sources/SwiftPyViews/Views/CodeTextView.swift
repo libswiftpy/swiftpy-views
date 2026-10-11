@@ -50,6 +50,8 @@ struct CodeTextView {
     let onFocusChange: (Bool) -> Void
     let onLineHeight: (CGFloat) -> Void
     let onScrollEdges: (ScrollEdges) -> Void
+    /// How far the code is scrolled sideways, on every change.
+    let onScrollOffset: (CGFloat) -> Void
 
     struct Mark: Equatable {
         let range: NSRange
@@ -74,6 +76,7 @@ struct CodeTextView {
         fileprivate var isApplyingUpdate = false
         fileprivate var lineHeight: CGFloat = 0
         fileprivate var scrollEdges = ScrollEdges()
+        fileprivate var scrollOffset: CGFloat = 0
         fileprivate var codeWidth: CGFloat = 0
         /// What the last measurement was of, so the container isn't unbounded
         /// and re-measured on updates that changed neither.
@@ -220,6 +223,12 @@ private extension CodeTextView {
         to coordinator: Coordinator
     ) {
         guard visibleWidth > 0 else { return }
+
+        if abs(offset - coordinator.scrollOffset) >= 0.5 {
+            coordinator.scrollOffset = offset
+            let report = onScrollOffset
+            Task { @MainActor in report(offset) }
+        }
 
         let edges = ScrollEdges(
             leading: offset > 0.5,
