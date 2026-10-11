@@ -18,7 +18,7 @@ enum ViewModifiers {
         let view = PyType.View
 
         view.function(
-            "padding(self, length: float | None = None, edges: Literal['all', 'horizontal', 'vertical', 'top', 'bottom', 'leading', 'trailing'] = 'all') -> View",
+            "padding(self, length: float | None = None, edges: Edges | str = 'all') -> View",
             "Adds space around the view: `length` points, or a size that suits it."
         ) { receiver, args in
             modify(receiver, args) { arguments in
@@ -29,7 +29,7 @@ enum ViewModifiers {
         }
 
         view.function(
-            "align(self, alignment: str) -> View",
+            "align(self, alignment: Alignment | str) -> View",
             "Fills the available space along the alignment's axes and places the view in it, such as \"leading\" or \"top-trailing\"."
         ) { receiver, args in
             modify(receiver, args) { arguments in
@@ -47,7 +47,7 @@ enum ViewModifiers {
         }
 
         view.function(
-            "font(self, font: Literal['large_title', 'title', 'title2', 'title3', 'headline', 'subheadline', 'body', 'callout', 'footnote', 'caption', 'caption2'], *, monospaced: bool = False) -> View",
+            "font(self, font: Font | str, *, monospaced: bool = False) -> View",
             "Sets the text style of the text inside."
         ) { receiver, args in
             modify(receiver, args) { arguments in
@@ -66,7 +66,7 @@ enum ViewModifiers {
         }
 
         view.function(
-            "foreground(self, color: str) -> View",
+            "foreground(self, color: Color | str) -> View",
             "Colors the text and symbols inside: a name such as \"red\" or \"secondary\", or \"#RRGGBB\"."
         ) { receiver, args in
             modify(receiver, args) { arguments in
@@ -76,7 +76,7 @@ enum ViewModifiers {
         }
 
         view.function(
-            "background(self, content: str | View) -> View",
+            "background(self, content: Color | str | View) -> View",
             "Puts a color, by name or \"#RRGGBB\", or a view behind the view."
         ) { receiver, args in
             modify(receiver, args) { arguments in
@@ -90,7 +90,7 @@ enum ViewModifiers {
         }
 
         view.function(
-            "tint(self, color: str) -> View",
+            "tint(self, color: Color | str) -> View",
             "Colors the controls inside: a name such as \"blue\", or \"#RRGGBB\"."
         ) { receiver, args in
             modify(receiver, args) { arguments in

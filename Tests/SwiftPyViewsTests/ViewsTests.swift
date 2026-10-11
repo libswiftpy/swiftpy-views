@@ -128,6 +128,28 @@ struct ViewsTests {
         #expect(Interpreter.evaluate("_raised") == true)
     }
 
+    @Test func optionsTakeTheirEnums() async throws {
+        await Interpreter.run("""
+        _stack = VStack("a", alignment=Alignment.TOP_LEADING)
+        _scroll = ScrollView("b", axis=Axis.HORIZONTAL)
+        _button = Button("Delete", role=ButtonRole.DESTRUCTIVE)
+        _picker = Picker("Size", ["S"], style=PickerStyle.SEGMENTED)
+        _styled = (Text("c").font(Font.LARGE_TITLE).padding(8, Edges.HORIZONTAL)
+                   .foreground(Color.RED).background(Color.ACCENT).tint(Color.MINT)
+                   .align(Alignment.LEADING))
+        """)
+        let stack: SwiftPyViews.VStack = try #require(py.main._stack)
+        #expect(stack.alignment == "top-leading")
+        let scroll: SwiftPyViews.ScrollView = try #require(py.main._scroll)
+        #expect(scroll.axis == "horizontal")
+        let button: SwiftPyViews.Button = try #require(py.main._button)
+        #expect(button.role == "destructive")
+        let picker: SwiftPyViews.Picker = try #require(py.main._picker)
+        #expect(picker.style == "segmented")
+        let styled: ModifiedView = try #require(py.main._styled)
+        _ = styled.body()
+    }
+
     @Test func buttonKeepsItsRole() async throws {
         await Interpreter.run("_button = Button('Delete', role='destructive')")
         let button: SwiftPyViews.Button = try #require(py.main._button)
