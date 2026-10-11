@@ -17,6 +17,7 @@ final class ScrollView {
     let content: Group
     /// The direction it scrolls: "vertical" or "horizontal".
     var axis: String
+    internal let contentHeight = ContentHeight()
 
     /// Creates a scroll view.
     ///
@@ -44,7 +45,7 @@ private struct ScrollViewContent: View {
             SwiftUI.ScrollView {
                 SwiftUI.VStack { model.content.body() }
             }
-            .fitsContentHeight()
+            .fitsContentHeight(model.contentHeight)
         }
     }
 }

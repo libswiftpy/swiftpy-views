@@ -13,6 +13,7 @@ import SwiftUI
 final class Form {
     /// The views, which can be changed after it's made.
     let content: Group
+    internal let contentHeight = ContentHeight()
 
     /// Creates a form.
     ///
@@ -34,7 +35,7 @@ private struct FormContent: View {
             model.content.body()
         }
         .formStyle(.grouped)
-        .fitsContentHeight()
+        .fitsContentHeight(model.contentHeight)
         .fillsAvailableSpace()
     }
 }
