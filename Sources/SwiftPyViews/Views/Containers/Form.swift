@@ -35,6 +35,8 @@ private struct FormContent: View {
             model.content.body()
         }
         .formStyle(.grouped)
+        // Its grouped background, rounded to sit in a card.
+        .clipShape(ConcentricRectangle.followingCorners)
         .fitsContentHeight(model.contentHeight)
         .fillsAvailableSpace()
     }

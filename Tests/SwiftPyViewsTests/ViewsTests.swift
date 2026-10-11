@@ -151,6 +151,45 @@ struct ViewsTests {
         _ = styled.body()
     }
 
+    @Test func animateCallsTheActionAndHandsBackItsResult() async {
+        await Interpreter.run("""
+        _stack = VStack("a")
+        _result = animate(lambda: _stack.content.append("b") or len(_stack.content))
+        try:
+            animate(lambda: 1 / 0)
+            _raised = False
+        except ZeroDivisionError:
+            _raised = True
+        """)
+        #expect(Interpreter.evaluate("_result") == 2)
+        #expect(Interpreter.evaluate("_raised") == true)
+        #expect(Interpreter.evaluate("animate.__module__") == "views")
+    }
+
+    @Test func rectangleRoundsItsCornersOrFollowsThem() async throws {
+        await Interpreter.run("""
+        _following = Rectangle()
+        _square = Rectangle(Color.TEAL, corner_radius=0)
+        _behind = Text("a").background(Rectangle("#FF0000", 12))
+        try:
+            Rectangle("nope")
+            _raised = False
+        except ValueError:
+            _raised = True
+        """)
+        let following: SwiftPyViews.Rectangle = try #require(py.main._following)
+        #expect(following.color == nil)
+        #expect(following.cornerRadius == nil)
+        let square: SwiftPyViews.Rectangle = try #require(py.main._square)
+        #expect(square.color == "teal")
+        #expect(square.cornerRadius == 0)
+        #expect(Interpreter.evaluate("_raised") == true)
+        _ = following.body()
+        _ = square.body()
+        let behind: ModifiedView = try #require(py.main._behind)
+        _ = behind.body()
+    }
+
     @Test func buttonKeepsItsRole() async throws {
         await Interpreter.run("_button = Button('Delete', role='destructive')")
         let button: SwiftPyViews.Button = try #require(py.main._button)

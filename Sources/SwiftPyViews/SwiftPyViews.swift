@@ -28,6 +28,7 @@ public func initialize() {
             Form.self,
             Section.self,
             Divider.self,
+            Rectangle.self,
             Button.self,
             TextField.self,
             Toggle.self,
@@ -35,6 +36,15 @@ public func initialize() {
             Picker.self,
             ProgressView.self,
         )
+
+        module.def(
+            "animate(action: Callable[[], Any]) -> Any",
+            docstring: "Calls `action` and animates the changes it makes to views. An `async def` is only called: animate what it changes after an `await` from inside it."
+        ) { argc, argv in
+            PyBind.function(argc, argv) { (action: PyObject) in
+                try withAnimation { try action() }
+            }
+        }
     }
     ViewModifiers.install()
 

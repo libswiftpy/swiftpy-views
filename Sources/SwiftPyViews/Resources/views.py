@@ -2,28 +2,29 @@ __doc__ = "Views to build user interfaces with."
 __all__ = [
     "View", "Alignment", "Font", "Edges", "Axis", "PickerStyle", "ButtonRole", "ControlSize", "Color",
     "Text", "Markdown", "Image",
-    "VStack", "HStack", "ZStack", "Group", "ScrollView", "Form", "Section", "Divider",
+    "VStack", "HStack", "ZStack", "Group", "ScrollView", "Form", "Section", "Divider", "Rectangle",
     "Button", "TextField", "Toggle", "Slider", "Stepper", "Picker", "ProgressView",
     "CodeEditor", "MarkdownEditor",
-    "Window",
+    "Window", "animate",
 ]
 
 from builtins import View
 from enum import StrEnum
 from _views import (
     Button, CodeEditor, Divider, Form, Group, HStack, Image, Markdown,
-    MarkdownEditor, ModifiedView, Picker, ProgressView, ScrollView, Section,
-    Slider, Stepper, Text, TextField, Toggle, VStack, Window, ZStack,
+    MarkdownEditor, ModifiedView, Picker, ProgressView, Rectangle, ScrollView, Section,
+    Slider, Stepper, Text, TextField, Toggle, VStack, Window, ZStack, animate,
 )
 
 # Report the public module, not the private one they live in.
 for _type in (
     Button, CodeEditor, Divider, Form, Group, HStack, Image, Markdown,
-    MarkdownEditor, ModifiedView, Picker, ProgressView, ScrollView, Section,
+    MarkdownEditor, ModifiedView, Picker, ProgressView, Rectangle, ScrollView, Section,
     Slider, Stepper, Text, TextField, Toggle, VStack, Window, ZStack,
 ):
     _type.__module__ = __name__
 del _type
+animate.__module__ = __name__
 
 
 class Alignment(StrEnum):
