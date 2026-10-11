@@ -8,14 +8,23 @@
 import SwiftPy
 import SwiftUI
 
+/// A view that scrolls its views when they don't fit.
 @Scriptable(base: .View)
 @Observable
 @MainActor
 final class ScrollView {
-    var views: Views
-    
-    init(views: Unpack) throws {
-        self.views = Views(objects: views.values)
+    /// The views, which can be changed after it's made.
+    let content: Group
+    /// The direction it scrolls: "vertical" or "horizontal".
+    var axis: String
+
+    /// Creates a scroll view.
+    ///
+    /// content: Views, or strings to show as text.
+    /// axis: The direction it scrolls: "vertical" or "horizontal". Defaults to "vertical".
+    init(content: Unpack, axis: String = "vertical") {
+        self.content = Group(objects: content.values)
+        self.axis = axis
     }
 
     func body() -> AnyView {
@@ -24,11 +33,18 @@ final class ScrollView {
 }
 
 private struct ScrollViewContent: View {
-    @State var model: ScrollView
+    let model: ScrollView
 
     var body: some View {
-        SwiftUI.ScrollView {
-            model.views.body()
+        if model.axis == "horizontal" {
+            SwiftUI.ScrollView(.horizontal) {
+                SwiftUI.HStack { model.content.body() }
+            }
+        } else {
+            SwiftUI.ScrollView {
+                SwiftUI.VStack { model.content.body() }
+            }
+            .fitsContentHeight()
         }
     }
 }

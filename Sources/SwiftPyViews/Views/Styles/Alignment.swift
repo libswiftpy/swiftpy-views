@@ -5,21 +5,10 @@
 //  Created by Tibor Felföldy on 2025-12-18.
 //
 
-import SwiftPy
 import SwiftUI
 
-@Scriptable(convertsToSnakeCase: false)
-final class Alignment {
-    static let CENTER = "center"
-    static let LEADING = "leading"
-    static let TRAILING = "trailing"
-    static let TOP = "top"
-    static let BOTTOM = "bottom"
-    static let TOP_LEADING = "top-leading"
-    static let TOP_TRAILING = "top-trailing"
-    static let BOTTOM_LEADING = "bottom-leading"
-    static let BOTTOM_TRAILING = "bottom-trailing"
-    
+// The names `views.Alignment` gives, as SwiftUI's alignments.
+enum Alignment {
     internal static func horizontal(_ alignment: String) -> HorizontalAlignment? {
         switch alignment {
         case "left", "leading", "top-leading", "bottom-leading": .leading
@@ -34,5 +23,12 @@ final class Alignment {
         case "bottom", "bottom-leading", "bottom-trailing": .bottom
         default: nil
         }
+    }
+
+    internal static func both(_ alignment: String) -> SwiftUI.Alignment {
+        SwiftUI.Alignment(
+            horizontal: horizontal(alignment) ?? .center,
+            vertical: vertical(alignment) ?? .center
+        )
     }
 }

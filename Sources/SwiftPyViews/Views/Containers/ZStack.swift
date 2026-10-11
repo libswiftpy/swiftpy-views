@@ -8,14 +8,23 @@
 import SwiftPy
 import SwiftUI
 
+/// A view that lays its views over each other, the first at the back.
 @Scriptable(base: .View)
 @Observable
 @MainActor
 final class ZStack {
-    var views: Views
-    
-    init(views: Unpack) {
-        self.views = Views(objects: views.values)
+    /// The views, which can be changed after it's made.
+    let content: Group
+    /// Where the views sit, such as "center" or "top-leading".
+    var alignment: String
+
+    /// Creates an overlapping stack.
+    ///
+    /// content: Views, or strings to show as text.
+    /// alignment: Where the views sit, such as "center" or "top-leading". Defaults to "center".
+    init(content: Unpack, alignment: String = "center") {
+        self.content = Group(objects: content.values)
+        self.alignment = alignment
     }
 
     func body() -> AnyView {
@@ -24,11 +33,11 @@ final class ZStack {
 }
 
 private struct ZStackContent: View {
-    @State var model: ZStack
+    let model: ZStack
 
     var body: some View {
-        SwiftUI.ZStack {
-            model.views.body()
+        SwiftUI.ZStack(alignment: Alignment.both(model.alignment)) {
+            model.content.body()
         }
     }
 }

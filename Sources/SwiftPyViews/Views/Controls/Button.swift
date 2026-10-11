@@ -31,11 +31,19 @@ final class Button {
 
     /// The action to perform when the user triggers the button.
     var action: PyObject?
-    
+
+    /// "destructive" or "cancel", which the button is styled for.
+    var role: String?
+
     /// Creates a button that displays a custom label.
-    init(label: PyObject, action: PyObject? = nil) {
+    ///
+    /// label: A view, or a string to show as text.
+    /// action: Called when the button is tapped. A coroutine it returns shows progress until it ends.
+    /// role: "destructive" or "cancel", which the button is styled for. Defaults to None.
+    init(label: PyObject, action: PyObject? = nil, role: String? = nil) {
         self.label = label
         self.action = action
+        self.role = role
     }
 
     func body() -> AnyView {
@@ -44,17 +52,15 @@ final class Button {
 }
 
 private struct ButtonContent: View {
-    @State var model: Button
+    let model: Button
     @State private var isProgressing = false
-    
-    var body: some View {
-        SwiftUI.Button {
-            let result = try? model.action?()
 
-            if let task = AsyncTask(result) {
+    var body: some View {
+        SwiftUI.Button(role: role) {
+            if let task = model.action?.callback() {
                 isProgressing = true
                 Task {
-                    _ = try? await task.untilCompletes()
+                    await task.value
                     isProgressing = false
                 }
             }
@@ -63,7 +69,7 @@ private struct ButtonContent: View {
                 .opacity(isProgressing ? 0 : 1)
                 .overlay {
                     if isProgressing {
-                        ProgressView()
+                        SwiftUI.ProgressView()
                     }
                 }
                 .id(model.contentRevision)
@@ -71,6 +77,14 @@ private struct ButtonContent: View {
         .disabled(isProgressing)
         .glassButtonStyle()
         .controlSize(.extraLarge)
+    }
+
+    private var role: ButtonRole? {
+        switch model.role {
+        case "destructive": .destructive
+        case "cancel": .cancel
+        default: nil
+        }
     }
 }
 

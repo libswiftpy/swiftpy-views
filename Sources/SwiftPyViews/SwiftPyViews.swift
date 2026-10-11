@@ -17,8 +17,26 @@ public func initialize() {
             CodeEditor.self,
             MarkdownEditor.self,
             Slider.self,
+            ModifiedView.self,
+            Text.self,
+            Image.self,
+            VStack.self,
+            HStack.self,
+            ZStack.self,
+            Group.self,
+            ScrollView.self,
+            Form.self,
+            Section.self,
+            Divider.self,
+            Button.self,
+            TextField.self,
+            Toggle.self,
+            Stepper.self,
+            Picker.self,
+            ProgressView.self,
         )
     }
+    ViewModifiers.install()
 
     PyBind.module("views", in: .module)
 }

@@ -8,28 +8,23 @@
 import SwiftPy
 import SwiftUI
 
-/// A container view that you can use to add hierarchy.
+/// A titled group of views, set apart in a form.
 @Scriptable(base: .View)
 @Observable
 @MainActor
 final class Section {
+    /// The views, which can be changed after it's made.
+    let content: Group
+    /// Shown above the views.
     var title: String?
 
-    internal var contentRevision = 0
-
-    var content: Views? {
-        didSet { contentRevision += 1 }
-    }
-
-    init() {}
-    
-    init(title: String) {
+    /// Creates a section.
+    ///
+    /// content: Views, or strings to show as text.
+    /// title: Shown above the views. Defaults to None.
+    init(content: Unpack, title: String? = nil) {
+        self.content = Group(objects: content.values)
         self.title = title
-    }
-
-    func __call__(content: Unpack) -> Section {
-        self.content = Views(objects: content.values)
-        return self
     }
 
     func body() -> AnyView {
@@ -38,12 +33,11 @@ final class Section {
 }
 
 private struct SectionContent: View {
-    @State var model: Section
+    let model: Section
 
     var body: some View {
         SwiftUI.Section {
-            model.content?.body()
-                .id(model.contentRevision)
+            model.content.body()
         } header: {
             if let title = model.title {
                 SwiftUI.Text(title)
@@ -52,41 +46,28 @@ private struct SectionContent: View {
     }
 }
 
-private struct PreviewInspector: View {
-    @State private var section: PyObject?
-    @State private var section2: PyObject?
+private struct PreviewSections: View {
+    @State private var form: PyObject?
 
     init() {
         _ = SwiftPyViews.PythonWindows()
     }
 
     var body: some View {
-        Form {
-            section?.asView
-            section2?.asView
-        }
-        .task {
-            await Interpreter.run("""
-            from views import *
+        form?.asView
+            .task {
+                await Interpreter.run("""
+                from views import *
 
-            section = Section('test')
-            section.content = (
-                Text('text')
-            )
-
-            section2 = Section('Test2')(
-                Text('text2')
-            )
-            """)
-            section = py.main.section
-            section2 = py.main.section2
-        }
+                items = Section("Two", title="Items")
+                items.content.insert(0, "One")
+                form = Form(Section(Text("Text")), items)
+                """)
+                form = py.main.form
+            }
     }
 }
 
 #Preview {
-    SwiftUI.ScrollView {
-        PreviewInspector()
-            .formStyle(.grouped)
-    }
+    PreviewSections()
 }

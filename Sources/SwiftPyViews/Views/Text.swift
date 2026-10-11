@@ -8,6 +8,7 @@
 import SwiftPy
 import SwiftUI
 
+/// A view that shows a line or more of text.
 @Scriptable(base: .View)
 @MainActor
 @Observable
@@ -24,7 +25,7 @@ final class Text {
 }
 
 private struct TextContent: View {
-    @State var model: Text
+    let model: Text
 
     var body: some View {
         SwiftUI.Text(model.text)

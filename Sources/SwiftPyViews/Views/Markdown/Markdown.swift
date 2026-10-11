@@ -215,7 +215,7 @@ public struct MarkdownContent: View {
             MarkdownContent(model: markdown)
                 .environment(\.trimsLeadingHeadingPadding, true)
 
-            Divider()
+            SwiftUI.Divider()
 
             MarkdownContent(model: markdown)
                 .environment(\.trimsLeadingHeadingPadding, false)
