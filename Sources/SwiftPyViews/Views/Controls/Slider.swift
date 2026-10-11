@@ -67,10 +67,7 @@ public final class Slider {
     /// What the control's binding does with the user's change.
     internal func userChange(to newValue: Double) {
         value = newValue
-        let result = try? onChange?(newValue)
-        if let task = AsyncTask(result) {
-            Task { _ = try? await task.untilCompletes() }
-        }
+        onChange?.callback(with: newValue)
     }
 }
 

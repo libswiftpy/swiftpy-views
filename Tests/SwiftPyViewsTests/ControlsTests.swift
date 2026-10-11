@@ -86,6 +86,24 @@ struct ControlsTests {
         #expect(Interpreter.evaluate("_changes") == ["g"])
     }
 
+    @Test func anAsyncCallbackRunsToItsEnd() async throws {
+        await Interpreter.run("""
+        import asyncio
+        _done = []
+        async def _slow():
+            await asyncio.sleep(0.01)
+            _done.append(True)
+        """)
+        let action: PyObject = try #require(py.main._slow)
+        let task = try #require(action.callback())
+        await task.value
+        #expect(Interpreter.evaluate("_done") == [true])
+
+        await Interpreter.run("_sync = lambda: 1")
+        let sync: PyObject = try #require(py.main._sync)
+        #expect(sync.callback() == nil)
+    }
+
     @Test func progressAndDividerAreViews() async {
         await Interpreter.run("""
         _progress = ProgressView(0.5, label="Loading")
