@@ -20,7 +20,7 @@ struct ViewsTests {
         await Interpreter.run("""
         _stack = VStack("a", Text("b"), alignment="leading", spacing=4)
         _row = HStack(Text("c"))
-        _section = Section("d", title="Items")
+        _section = Section("d", header="Items", footer=Text("Note"))
         """)
         let stack: SwiftPyViews.VStack = try #require(py.main._stack)
         #expect(stack.content.objects.count == 2)
@@ -29,7 +29,8 @@ struct ViewsTests {
         let row: SwiftPyViews.HStack = try #require(py.main._row)
         #expect(row.spacing == nil)
         let section: SwiftPyViews.Section = try #require(py.main._section)
-        #expect(section.title == "Items")
+        #expect(Interpreter.evaluate("_section.header") == "Items")
+        #expect(Interpreter.evaluate("isinstance(_section.footer, Text)") == true)
         #expect(section.content.objects.count == 1)
         #expect(Interpreter.evaluate("type(_stack).__module__") == "views")
         #expect(Interpreter.evaluate("isinstance(Form(_section), View)") == true)

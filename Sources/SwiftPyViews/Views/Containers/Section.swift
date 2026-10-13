@@ -16,15 +16,19 @@ final class Section {
     /// The views, which can be changed after it's made.
     let content: Group
     /// Shown above the views.
-    var title: String?
+    var header: PyObject?
+    /// Shown below the views.
+    var footer: PyObject?
 
     /// Creates a section.
     ///
     /// content: Views, or strings to show as text.
-    /// title: Shown above the views. Defaults to None.
-    init(content: Unpack, title: String? = nil) {
+    /// header: Shown above the views: a view, or a string to show as a title. Defaults to None.
+    /// footer: Shown below the views: a view, or a string to show as a note. Defaults to None.
+    init(content: Unpack, header: PyObject? = nil, footer: PyObject? = nil) {
         self.content = Group(objects: content.values)
-        self.title = title
+        self.header = header
+        self.footer = footer
     }
 
     func body() -> AnyView {
@@ -39,9 +43,22 @@ private struct SectionContent: View {
         SwiftUI.Section {
             model.content.body()
         } header: {
-            if let title = model.title {
-                SwiftUI.Text(title)
-            }
+            model.header.map(SectionLabel.init)
+        } footer: {
+            model.footer.map(SectionLabel.init)
+        }
+    }
+}
+
+private struct SectionLabel: View {
+    let object: PyObject
+
+    var body: some View {
+        if let text = String(object) {
+            SwiftUI.Text(text)
+        } else {
+            // A view keeps its own text, which a form would capitalize.
+            object.asView.textCase(nil)
         }
     }
 }
@@ -59,7 +76,7 @@ private struct PreviewSections: View {
                 await Interpreter.run("""
                 from views import *
 
-                items = Section("Two", title="Items")
+                items = Section("Two", header="Items", footer="A note")
                 items.content.insert(0, "One")
                 form = Form(Section(Text("Text")), items)
                 """)
