@@ -98,7 +98,7 @@ struct ViewsTests {
                 return Text("card")
 
         _text = Text("a")
-        _modified = (_text.padding(8, "horizontal").font("headline", monospaced=True)
+        _modified = (_text.padding(8, "horizontal").font("headline").monospaced()
                      .bold().italic().foreground("#FF000080").background("blue")
                      .tint("accent").control_size("small").disabled().align("leading")
                      .on_appear(lambda: None).toolbar("Done"))
@@ -117,6 +117,7 @@ struct ViewsTests {
         "Text('a').font('huge')",
         "Text('a').padding(edges='inside')",
         "Text('a').control_size('huge')",
+        "Text('a').button_style('fancy')",
     ])
     func unknownStyleNamesRaise(_ expression: String) async {
         await Interpreter.run("""
@@ -137,7 +138,8 @@ struct ViewsTests {
         _picker = Picker("Size", ["S"], style=PickerStyle.SEGMENTED)
         _styled = (Text("c").font(Font.LARGE_TITLE).padding(8, Edges.HORIZONTAL)
                    .foreground(Color.RED).background(Color.ACCENT).tint(Color.MINT)
-                   .align(Alignment.LEADING).control_size(ControlSize.EXTRA_LARGE))
+                   .align(Alignment.LEADING).control_size(ControlSize.EXTRA_LARGE)
+                   .button_style(ButtonStyle.PLAIN))
         """)
         let stack: SwiftPyViews.VStack = try #require(py.main._stack)
         #expect(stack.alignment == "top-leading")

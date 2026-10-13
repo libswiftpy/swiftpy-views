@@ -85,6 +85,18 @@ extension Edge.Set {
     }
 }
 
+enum ButtonLook {
+    case glass, plain
+
+    init(pythonName name: String) throws {
+        switch name {
+        case "glass": self = .glass
+        case "plain": self = .plain
+        default: throw PythonError(type: "ValueError", value: "unknown button style: \(name)")
+        }
+    }
+}
+
 extension ControlSize {
     init(pythonName name: String) throws {
         switch name {

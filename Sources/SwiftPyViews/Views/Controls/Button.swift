@@ -55,6 +55,7 @@ private struct ButtonContent: View {
     let model: Button
     @State private var isProgressing = false
     @Environment(\.isInToolbar) private var isInToolbar
+    @Environment(\.buttonLook) private var look
 
     var body: some View {
         // The glass style doesn't color a destructive role.
@@ -68,6 +69,8 @@ private struct ButtonContent: View {
     @ViewBuilder private var styled: some View {
         if isInToolbar {
             button
+        } else if look == .plain {
+            button.buttonStyle(.plain)
         } else {
             button.glassButtonStyle()
         }

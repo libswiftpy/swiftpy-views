@@ -18,7 +18,7 @@ final class Picker {
     var options: PyObject
     /// The chosen option's value, or None.
     var selection: String?
-    /// "menu", "segmented" or "inline".
+    /// "menu" or "segmented".
     var style: String
     /// Called with the chosen value when the user picks one. A change from
     /// code doesn't call it.
@@ -29,7 +29,7 @@ final class Picker {
     /// label: What the picker chooses.
     /// options: A list of strings, or a dict from each option's value to the title shown for it.
     /// selection: The chosen option's value. Defaults to None.
-    /// style: "menu", "segmented" or "inline". Defaults to "menu".
+    /// style: "menu" or "segmented". Defaults to "menu".
     /// on_change: Called with the chosen value when the user picks one.
     init(
         label: String,
@@ -86,7 +86,6 @@ private struct PickerContent: View {
         }
         switch model.style {
         case "segmented": picker.pickerStyle(.segmented)
-        case "inline": picker.pickerStyle(.inline)
         default: picker.pickerStyle(.menu)
         }
     }

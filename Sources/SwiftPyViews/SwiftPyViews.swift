@@ -34,7 +34,7 @@ public func initialize() {
             Toggle.self,
             Stepper.self,
             Picker.self,
-            ProgressView.self,
+            Progress.self,
         )
 
         module.def(

@@ -1,5 +1,5 @@
 //
-//  ProgressView.swift
+//  Progress.swift
 //  swiftpy-views
 //
 
@@ -10,7 +10,7 @@ import SwiftUI
 @Scriptable(base: .View)
 @MainActor
 @Observable
-final class ProgressView {
+final class Progress {
     /// How much is done, out of `total`; None shows a spinner.
     var value: Double?
     /// What `value` counts up to.
@@ -30,12 +30,12 @@ final class ProgressView {
     }
 
     func body() -> AnyView {
-        AnyView(ProgressViewContent(model: self))
+        AnyView(ProgressContent(model: self))
     }
 }
 
-private struct ProgressViewContent: View {
-    let model: ProgressView
+private struct ProgressContent: View {
+    let model: Progress
 
     var body: some View {
         if let value = model.value {

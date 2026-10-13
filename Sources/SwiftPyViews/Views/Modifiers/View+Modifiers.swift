@@ -47,13 +47,12 @@ enum ViewModifiers {
         }
 
         view.function(
-            "font(self, font: Font | str, *, monospaced: bool = False) -> View",
+            "font(self, font: Font | str) -> View",
             "Sets the text style of the text inside."
         ) { receiver, args in
             modify(receiver, args) { arguments in
                 let font = try Font(pythonName: String.cast(arguments, 1))
-                let monospaced = try Bool.cast(arguments, 2)
-                return { AnyView($0.font(monospaced ? font.monospaced() : font)) }
+                return { AnyView($0.font(font)) }
             }
         }
 
@@ -63,6 +62,10 @@ enum ViewModifiers {
 
         view.function("italic(self) -> View", "Makes the text inside italic.") { receiver, args in
             modify(receiver, args) { _ in { AnyView($0.italic()) } }
+        }
+
+        view.function("monospaced(self) -> View", "Makes the text inside monospaced.") { receiver, args in
+            modify(receiver, args) { _ in { AnyView($0.monospaced()) } }
         }
 
         view.function(
@@ -106,6 +109,16 @@ enum ViewModifiers {
             modify(receiver, args) { arguments in
                 let size = try ControlSize(pythonName: String.cast(arguments, 1))
                 return { AnyView($0.controlSize(size)) }
+            }
+        }
+
+        view.function(
+            "button_style(self, style: ButtonStyle | str) -> View",
+            "Styles the buttons inside: plain ones show just their label."
+        ) { receiver, args in
+            modify(receiver, args) { arguments in
+                let look = try ButtonLook(pythonName: String.cast(arguments, 1))
+                return { AnyView($0.environment(\.buttonLook, look)) }
             }
         }
 
@@ -166,4 +179,5 @@ private func modify(
 extension EnvironmentValues {
     // Set on `toolbar` items, which the toolbar gives glass of its own.
     @Entry var isInToolbar = false
+    @Entry var buttonLook = ButtonLook.glass
 }

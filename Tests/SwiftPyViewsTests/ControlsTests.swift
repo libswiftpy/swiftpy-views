@@ -106,8 +106,8 @@ struct ControlsTests {
 
     @Test func progressAndDividerAreViews() async {
         await Interpreter.run("""
-        _progress = ProgressView(0.5, label="Loading")
-        _spinner = ProgressView()
+        _progress = Progress(0.5, label="Loading")
+        _spinner = Progress()
         """)
         #expect(Interpreter.evaluate("_progress.value") == 0.5)
         #expect(Interpreter.evaluate("_spinner.value is None") == true)

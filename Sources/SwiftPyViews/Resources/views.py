@@ -1,9 +1,9 @@
 __doc__ = "Views to build user interfaces with."
 __all__ = [
-    "View", "Alignment", "Font", "Edges", "Axis", "PickerStyle", "ButtonRole", "ControlSize", "Color",
+    "View", "Alignment", "Font", "Edges", "Axis", "PickerStyle", "ButtonRole", "ButtonStyle", "ControlSize", "Color",
     "Text", "Markdown", "Image",
     "VStack", "HStack", "ZStack", "Group", "ScrollView", "Form", "Section", "Divider", "Rectangle",
-    "Button", "TextField", "Toggle", "Slider", "Stepper", "Picker", "ProgressView",
+    "Button", "TextField", "Toggle", "Slider", "Stepper", "Picker", "Progress",
     "CodeEditor", "MarkdownEditor",
     "Window", "animate",
 ]
@@ -12,14 +12,14 @@ from builtins import View
 from enum import StrEnum
 from _views import (
     Button, CodeEditor, Divider, Form, Group, HStack, Image, Markdown,
-    MarkdownEditor, ModifiedView, Picker, ProgressView, Rectangle, ScrollView, Section,
+    MarkdownEditor, ModifiedView, Picker, Progress, Rectangle, ScrollView, Section,
     Slider, Stepper, Text, TextField, Toggle, VStack, Window, ZStack, animate,
 )
 
 # Report the public module, not the private one they live in.
 for _type in (
     Button, CodeEditor, Divider, Form, Group, HStack, Image, Markdown,
-    MarkdownEditor, ModifiedView, Picker, ProgressView, Rectangle, ScrollView, Section,
+    MarkdownEditor, ModifiedView, Picker, Progress, Rectangle, ScrollView, Section,
     Slider, Stepper, Text, TextField, Toggle, VStack, Window, ZStack,
 ):
     _type.__module__ = __name__
@@ -76,13 +76,18 @@ class PickerStyle(StrEnum):
     """How a `Picker` shows its options."""
     MENU = "menu"
     SEGMENTED = "segmented"
-    INLINE = "inline"
 
 
 class ButtonRole(StrEnum):
     """What a `Button` is styled for."""
     DESTRUCTIVE = "destructive"
     CANCEL = "cancel"
+
+
+class ButtonStyle(StrEnum):
+    """How `View.button_style` draws the buttons inside."""
+    GLASS = "glass"
+    PLAIN = "plain"
 
 
 class ControlSize(StrEnum):
