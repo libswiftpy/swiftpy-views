@@ -29,7 +29,7 @@ let package = Package(
                 "SyntaxHighlight",
                 .product(name: "MarkdownView", package: "MarkdownView"),
             ],
-            resources: [.copy("Resources/views.py")],
+            resources: [.copy("Resources/views.py"), .copy("Resources/widgets.py")],
         ),
         .target(
             name: "SyntaxHighlight",

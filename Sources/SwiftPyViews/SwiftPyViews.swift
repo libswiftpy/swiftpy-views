@@ -49,6 +49,14 @@ public func initialize() {
     ViewModifiers.install()
 
     PyBind.module("views", in: .module)
+
+    #if DEBUG
+    // Only to try out for now; not in release builds.
+    PyBind.module("_widgets", docs: "Native widgets.") { module in
+        module.classes(Widget.self)
+    }
+    PyBind.module("widgets", in: .module)
+    #endif
 }
 
 @MainActor
