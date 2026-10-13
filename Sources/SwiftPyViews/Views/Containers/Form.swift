@@ -28,17 +28,26 @@ final class Form {
 
 private struct FormContent: View {
     let model: Form
+    @Environment(\.isInWindow) private var isInWindow
 
     var body: some View {
         SquareWhenUnbounded {
-            SwiftUI.Form {
-                model.content.body()
+            if isInWindow {
+                form
+            } else {
+                // Its grouped background, rounded to sit in a card. A window's
+                // large title scrolls with the form, so a clip there cuts it.
+                form.clipShape(ConcentricRectangle.followingCorners)
             }
-            .formStyle(.grouped)
-            // Its grouped background, rounded to sit in a card.
-            .clipShape(ConcentricRectangle.followingCorners)
         }
         .fillsAvailableSpace()
+    }
+
+    private var form: some View {
+        SwiftUI.Form {
+            model.content.body()
+        }
+        .formStyle(.grouped)
     }
 }
 

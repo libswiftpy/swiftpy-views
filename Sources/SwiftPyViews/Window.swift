@@ -237,6 +237,7 @@ struct WindowContent: View {
             }
             #endif
         }
+        .environment(\.isInWindow, true)
     }
 
     private var closeButton: some View {
@@ -276,4 +277,9 @@ private struct WindowContentContainer<Content: View>: View {
             .scrollBounceBehavior(.basedOnSize)
         }
     }
+}
+
+public extension EnvironmentValues {
+    /// A window shows views as an app would, rather than in a notebook's cards.
+    @Entry var isInWindow = false
 }
