@@ -227,12 +227,21 @@ struct WindowContent: View {
             #if canImport(UIKit)
             .toolbar {
                 if window.closable && window.isPresentedModally {
-                    SwiftUI.Button(role: .close) {
-                        window.close()
+                    // Pinned, it stays the trailing-most beside a view's own items.
+                    if #available(iOS 27, visionOS 27, *) {
+                        ToolbarItem(placement: .topBarPinnedTrailing) { closeButton }
+                    } else {
+                        ToolbarItem { closeButton }
                     }
                 }
             }
             #endif
+        }
+    }
+
+    private var closeButton: some View {
+        SwiftUI.Button(role: .close) {
+            window.close()
         }
     }
 }
