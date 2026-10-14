@@ -47,6 +47,38 @@ struct ImageRenderTests {
         #expect(one.height > 0)
     }
 
+    // The alpha of the top-left pixel, where a short text draws nothing.
+    private func cornerAlpha(_ name: String) throws -> UInt8 {
+        let data: Data = try #require(py.main[dynamicMember: name])
+        let source = try #require(CGImageSourceCreateWithData(data as CFData, nil))
+        let image = try #require(CGImageSourceCreateImageAtIndex(source, 0, nil))
+        var pixel: [UInt8] = [0, 0, 0, 0]
+        let context = try #require(CGContext(
+            data: &pixel, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
+            space: CGColorSpace(name: CGColorSpace.sRGB)!,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ))
+        context.draw(image, in: CGRect(x: 0, y: 1 - image.height, width: image.width, height: image.height))
+        return pixel[3]
+    }
+
+    @Test func fillsItsBackground() async throws {
+        await Interpreter.run("""
+        _opaque = (await Image.render(Text("Hi").padding(), width=200)).png()
+        _clear = (await Image.render(Text("Hi").padding(), width=200, background=Color.CLEAR)).png()
+        _red = (await Image.render(Text("Hi").padding(), width=200, background="#FF0000")).png()
+        _bad = None
+        try:
+            await Image.render(Text("Hi"), background="nope")
+        except Exception as e:
+            _bad = type(e).__name__
+        """)
+        #expect(try cornerAlpha("_opaque") == 255)
+        #expect(try cornerAlpha("_clear") == 0)
+        #expect(try cornerAlpha("_red") == 255)
+        #expect(Interpreter.evaluate("_bad") == "ValueError")
+    }
+
     @Test func drawsAStringAsText() async throws {
         await Interpreter.run("_text = (await Image.render('hello', width=100)).png()")
         #expect(try pixelSize("_text").width > 0)

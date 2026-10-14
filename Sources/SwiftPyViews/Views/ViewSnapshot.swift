@@ -14,16 +14,16 @@ import AppKit
 /// (text fields, scroll views, Markdown) draw too, which `ImageRenderer` can't.
 @MainActor
 enum ViewSnapshot {
-    static func image(of view: AnyView, width: CGFloat?, delay: Double) async -> PlatformImage {
+    static func image(of view: AnyView, width: CGFloat?, delay: Double, background: Color?) async -> PlatformImage {
         #if canImport(UIKit)
         let scene = UIApplication.shared.connectedScenes
             .compactMap { $0 as? UIWindowScene }
             .first { $0.keyWindow != nil }
         guard let scene, let keyWindow = scene.keyWindow else {
-            return rendered(view, width: width ?? 393)
+            return rendered(view, width: width ?? 393, background: background)
         }
         let width = width ?? keyWindow.bounds.width
-        let controller = UIHostingController(rootView: sized(view, width: width))
+        let controller = UIHostingController(rootView: sized(view, width: width, background: background))
         controller.safeAreaRegions = []
         controller.view.backgroundColor = .clear
 
@@ -53,7 +53,7 @@ enum ViewSnapshot {
         }
         #else
         let width = width ?? NSApp?.keyWindow?.contentLayoutRect.width ?? 400
-        let host = NSHostingView(rootView: sized(view, width: width))
+        let host = NSHostingView(rootView: sized(view, width: width, background: background))
         host.safeAreaRegions = []
 
         // Never ordered front: drawing into a bitmap doesn't need it on screen.
@@ -75,7 +75,7 @@ enum ViewSnapshot {
         fit()
 
         guard let bitmap = host.bitmapImageRepForCachingDisplay(in: host.bounds) else {
-            return rendered(view, width: width)
+            return rendered(view, width: width, background: background)
         }
         host.cacheDisplay(in: host.bounds, to: bitmap)
         let image = NSImage(size: host.bounds.size)
@@ -86,10 +86,20 @@ enum ViewSnapshot {
 
     // Leading, as a card lays out its output, at its ideal height: a ScrollView
     // takes its content's, but a List has none, so it needs a frame.
-    private static func sized(_ view: AnyView, width: CGFloat) -> some View {
+    // Without a colour, the app's background, which resolves to light or dark in the window.
+    private static func sized(_ view: AnyView, width: CGFloat, background: Color?) -> some View {
         view
             .fixedSize(horizontal: false, vertical: true)
             .frame(width: width, alignment: .leading)
+            .background(background ?? appBackground)
+    }
+
+    private static var appBackground: Color {
+        #if canImport(UIKit)
+        Color(uiColor: .systemBackground)
+        #else
+        Color(nsColor: .windowBackgroundColor)
+        #endif
     }
 
     // A couple of frames, so appearing and `.task` work gets going, then `delay`.
@@ -98,8 +108,8 @@ enum ViewSnapshot {
     }
 
     // Without a window to host it in, as in tests without an app.
-    private static func rendered(_ view: AnyView, width: CGFloat) -> PlatformImage {
-        let renderer = ImageRenderer(content: sized(view, width: width))
+    private static func rendered(_ view: AnyView, width: CGFloat, background: Color?) -> PlatformImage {
+        let renderer = ImageRenderer(content: sized(view, width: width, background: background))
         #if canImport(UIKit)
         renderer.scale = max(1, UITraitCollection.current.displayScale)
         return renderer.uiImage ?? UIImage()

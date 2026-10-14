@@ -49,16 +49,18 @@ final class Image: WrappedObject<SwiftUI.Image> {
         throw PythonError.RuntimeError("Failed to create an image.")
     }
 
-    /// Draws a view into an image, as it shows in a card, in the app's light or dark mode.
+    /// Draws a view into an image, as it shows in the app, in light or dark mode.
     ///
     /// view: The view to draw, or a string drawn as text.
     /// width: Its width in points. Defaults to the window's; the height fits the content.
     /// delay: Seconds to wait before drawing, for content that loads, like an image from the web.
-    static func render(view: PyObject, width: Double? = nil, delay: Double = 0) async throws -> Image {
+    /// background: A `Color`, or "#RRGGBB", filling the image behind the view. Defaults to None, the app's own background in light or dark mode; `Color.CLEAR` leaves it transparent.
+    static func render(view: PyObject, width: Double? = nil, delay: Double = 0, background: String? = nil) async throws -> Image {
         guard let content = view.asView else {
             throw PythonError.TypeError("can't render \(view.typeName), not a view")
         }
-        let pixels = await ViewSnapshot.image(of: content, width: width.map { CGFloat($0) }, delay: delay)
+        let fill = try background.map(Color.init(pythonName:))
+        let pixels = await ViewSnapshot.image(of: content, width: width.map { CGFloat($0) }, delay: delay, background: fill)
         return Image(pixels: pixels)
     }
 
