@@ -13,14 +13,18 @@ import ImagePlayground
 @Scriptable(base: .View)
 final class Image: WrappedObject<SwiftUI.Image> {
     var scaleToFit: Bool = true
-    
+
+    // What `png()` encodes; a system symbol has none.
+    internal var pixels: PlatformImage?
+
     /// Initializes and returns the image object with the specified data.
     init(data: Data) throws {
-        guard let image = SwiftUI.Image.from(data) else {
+        guard let pixels = PlatformImage(data: data) else {
             throw PythonError.ValueError("Invalid image data.")
         }
 
-        super.init(image)
+        super.init(pixels.swiftUI)
+        self.pixels = pixels
     }
 
     internal override init(_ value: SwiftUI.Image) {
@@ -39,11 +43,36 @@ final class Image: WrappedObject<SwiftUI.Image> {
         let creator = try await ImageCreator()
 
         for try await image in creator.images(for: [.text(text)], style: .animation, limit: 1) {
-            let value = PlatformImage(cgImage: image.cgImage).swiftUI
-            return Image(value)
+            return Image(pixels: PlatformImage(cgImage: image.cgImage))
         }
 
         throw PythonError.RuntimeError("Failed to create an image.")
+    }
+
+    /// Draws a view into an image, as it shows in a card, in the app's light or dark mode.
+    ///
+    /// view: The view to draw, or a string drawn as text.
+    /// width: Its width in points. Defaults to the window's; the height fits the content.
+    /// delay: Seconds to wait before drawing, for content that loads, like an image from the web.
+    static func render(view: PyObject, width: Double? = nil, delay: Double = 0) async throws -> Image {
+        guard let content = view.asView else {
+            throw PythonError.TypeError("can't render \(view.typeName), not a view")
+        }
+        let pixels = await ViewSnapshot.image(of: content, width: width.map { CGFloat($0) }, delay: delay)
+        return Image(pixels: pixels)
+    }
+
+    /// The image as PNG data.
+    func png() throws -> Data {
+        guard let data = pixels?.png else {
+            throw PythonError.ValueError("this image has no pixels of its own, like a system symbol")
+        }
+        return data
+    }
+
+    private convenience init(pixels: PlatformImage) {
+        self.init(pixels.swiftUI)
+        self.pixels = pixels
     }
 
     /// Creates a system symbol image.
