@@ -710,7 +710,11 @@ extension CodeTextView: UIViewRepresentable {
         coordinator.isApplyingUpdate = true
         defer { coordinator.isApplyingUpdate = false }
 
-        textView.isEditable = isEditable
+        // Only on a change: setting it reloads a focused view's input, which
+        // updates SwiftUI and calls this again, forever.
+        if textView.isEditable != isEditable {
+            textView.isEditable = isEditable
+        }
         textView.showsIndentGuides = editing.indentGuides
         if textView.font != Self.font {
             textView.font = Self.font
@@ -950,7 +954,9 @@ extension CodeTextView: NSViewRepresentable {
         coordinator.isApplyingUpdate = true
         defer { coordinator.isApplyingUpdate = false }
 
-        textView.isEditable = isEditable
+        if textView.isEditable != isEditable {
+            textView.isEditable = isEditable
+        }
         textView.showsIndentGuides = editing.indentGuides
         if textView.font != Self.font {
             textView.font = Self.font
