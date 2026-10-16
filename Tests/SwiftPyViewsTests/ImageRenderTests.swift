@@ -91,6 +91,16 @@ struct ImageRenderTests {
         #expect(try pixelSize("_again").width > 0)
     }
 
+    @Test func aFittedSymbolFillsItsWidth() async throws {
+        await Interpreter.run("""
+        _fitted = (await Image.render(Image.system("square.fill", fit=True), width=200)).png()
+        _plain = (await Image.render(Image.system("square.fill"), width=200)).png()
+        _flags = (Image.system("star", fit=True).scale_to_fit, Image.system("star").scale_to_fit)
+        """)
+        #expect(try pixelSize("_fitted").height > 4 * pixelSize("_plain").height)
+        #expect(Interpreter.evaluate("str(_flags)") == "(True, False)")
+    }
+
     @Test func refusesWhatItCantDraw() async {
         await Interpreter.run("""
         _symbol = _raised(lambda: Image.system("star").png())

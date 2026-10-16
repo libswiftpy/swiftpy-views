@@ -78,9 +78,12 @@ final class Image: WrappedObject<SwiftUI.Image> {
     }
 
     /// Creates a system symbol image.
-    static func system(name: String) -> Image {
+    ///
+    /// name: The SF Symbol's name.
+    /// fit: Whether it scales to fill the space it's given, rather than following the font. Defaults to False.
+    static func system(name: String, fit: Bool = false) -> Image {
         let image = Image(SwiftUI.Image(systemName: name))
-        image.scaleToFit = false
+        image.scaleToFit = fit
         return image
     }
 }
