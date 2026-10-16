@@ -3,6 +3,7 @@ __all__ = [
     "View", "Alignment", "Font", "Edges", "Axis", "PickerStyle", "ButtonRole", "ButtonStyle", "ControlSize", "Color",
     "Text", "Markdown", "Image",
     "VStack", "HStack", "ZStack", "Group", "ScrollView", "Form", "Section", "Divider", "Rectangle",
+    "SizeContainer", "Sizing", "Transform", "Length", "LengthExpression", "Percent", "AlignmentValue",
     "Button", "TextField", "Toggle", "Slider", "Stepper", "Picker", "Progress",
     "CodeEditor", "MarkdownEditor",
     "Window", "animate",
@@ -13,14 +14,16 @@ from enum import StrEnum
 from _views import (
     Button, CodeEditor, Divider, Form, Group, HStack, Image, Markdown,
     MarkdownEditor, ModifiedView, Picker, Progress, Rectangle, ScrollView, Section,
-    Slider, Stepper, Text, TextField, Toggle, VStack, Window, ZStack, animate,
+    SizeContainer, Sizing, Slider, Stepper, Text, TextField, Toggle, Transform, VStack, Window,
+    ZStack, animate,
 )
 
 # Report the public module, not the private one they live in.
 for _type in (
     Button, CodeEditor, Divider, Form, Group, HStack, Image, Markdown,
     MarkdownEditor, ModifiedView, Picker, Progress, Rectangle, ScrollView, Section,
-    Slider, Stepper, Text, TextField, Toggle, VStack, Window, ZStack,
+    SizeContainer, Sizing, Slider, Stepper, Text, TextField, Toggle, Transform, VStack, Window,
+    ZStack,
 ):
     _type.__module__ = __name__
 del _type
@@ -38,6 +41,11 @@ class Alignment(StrEnum):
     TOP_TRAILING = "top-trailing"
     BOTTOM_LEADING = "bottom-leading"
     BOTTOM_TRAILING = "bottom-trailing"
+
+
+
+# What a container's `alignment` takes: the enum, or its name.
+type AlignmentValue = Alignment | str
 
 
 class Font(StrEnum):
@@ -120,3 +128,90 @@ class Color(StrEnum):
     PRIMARY = "primary"
     SECONDARY = "secondary"
     ACCENT = "accent"
+
+
+class LengthExpression:
+    """A length that layout works out: a percentage of the nearest
+    `SizeContainer`, of its width for a width or `x` and of its height for a
+    height or `y`, plus points. Make one from `Percent`, adding or subtracting
+    points."""
+
+    __slots__ = ("percent", "points")
+
+    def __init__(self, percent: float = 0, points: float = 0) -> None:
+        self.percent = float(percent)
+        self.points = float(points)
+
+    def __add__(self, points: float) -> LengthExpression:
+        if isinstance(points, LengthExpression) or not isinstance(points, (int, float)):
+            return NotImplemented
+        return LengthExpression(self.percent, self.points + points)
+
+    __radd__ = __add__
+
+    def __sub__(self, points: float) -> LengthExpression:
+        if isinstance(points, LengthExpression) or not isinstance(points, (int, float)):
+            return NotImplemented
+        return LengthExpression(self.percent, self.points - points)
+
+    def __rsub__(self, points: float) -> LengthExpression:
+        if not isinstance(points, (int, float)):
+            return NotImplemented
+        return LengthExpression(-self.percent, points - self.points)
+
+    def __eq__(self, other):
+        if not isinstance(other, LengthExpression):
+            return NotImplemented
+        return (self.percent, self.points) == (other.percent, other.points)
+
+    def __hash__(self):
+        return hash((self.percent, self.points))
+
+    def __repr__(self) -> str:
+        text = f"Percent({self.percent:g})"
+        if self.points > 0:
+            return f"{text} + {self.points:g}"
+        if self.points < 0:
+            return f"{text} - {-self.points:g}"
+        return text
+
+
+class Percent(LengthExpression):
+    """A percentage of the nearest `SizeContainer`: of its width for a width
+    or `x`, of its height for a height or `y`. Add or subtract points, as in
+    `Percent(50) - 10`."""
+
+    __slots__ = ()
+
+    def __init__(self, value: float) -> None:
+        super().__init__(value, 0)
+
+
+type Length = float | LengthExpression
+
+# What a type checker and `help` read: `_class_lines` leaves out dunders.
+LengthExpression._interface = '''class LengthExpression:
+    """A length that layout works out: a percentage of the nearest
+    `SizeContainer`, plus points. Make one from `Percent`, adding or
+    subtracting points.
+
+    Attributes:
+        percent: The percentage of the container's width or height.
+        points: Points added to it.
+    """
+    percent: float
+    points: float
+
+    def __init__(self, percent: float = 0, points: float = 0) -> None: ...
+    def __add__(self, points: float) -> LengthExpression: ...
+    def __radd__(self, points: float) -> LengthExpression: ...
+    def __sub__(self, points: float) -> LengthExpression: ...
+    def __rsub__(self, points: float) -> LengthExpression: ...'''
+
+Percent._interface = '''class Percent(LengthExpression):
+    """A percentage of the nearest `SizeContainer`: of its width for a width
+    or `x`, of its height for a height or `y`. Add or subtract points, as in
+    `Percent(50) - 10`.
+    """
+
+    def __init__(self, value: float) -> None: ...'''

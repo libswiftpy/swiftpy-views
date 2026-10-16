@@ -17,6 +17,10 @@ enum ViewModifiers {
         isInstalled = true
         let view = PyType.View
 
+        // In their types' own files, where the conversion of what they return compiles.
+        Sizing.installModifier(on: view)
+        Transform.installModifier(on: view)
+
         view.function(
             "padding(self, length: float | None = None, edges: Edges | str = 'all') -> View",
             "Adds space around the view: `length` points, or a size that suits it."

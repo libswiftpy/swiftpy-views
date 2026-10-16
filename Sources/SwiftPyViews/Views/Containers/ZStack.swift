@@ -15,14 +15,14 @@ import SwiftUI
 final class ZStack {
     /// The views, which can be changed after it's made.
     let content: Group
-    /// Where the views sit, such as "center" or "top-leading".
-    var alignment: String
+    /// Where the views sit: an `Alignment`, such as `Alignment.TOP_LEADING`, or its name.
+    var alignment: AlignmentValue
 
     /// Creates an overlapping stack.
     ///
     /// content: Views, or strings to show as text.
-    /// alignment: Where the views sit, such as "center" or "top-leading". Defaults to "center".
-    init(content: Unpack, alignment: String = "center") {
+    /// alignment: Where the views sit: an `Alignment`, such as `Alignment.TOP_LEADING`, or its name. Defaults to center.
+    init(content: Unpack, alignment: AlignmentValue = "center") {
         self.content = Group(objects: content.values)
         self.alignment = alignment
     }
@@ -36,7 +36,7 @@ private struct ZStackContent: View {
     let model: ZStack
 
     var body: some View {
-        SwiftUI.ZStack(alignment: Alignment.both(model.alignment)) {
+        SwiftUI.ZStack(alignment: Alignment.both(model.alignment.name)) {
             model.content.body()
         }
     }
