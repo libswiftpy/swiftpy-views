@@ -90,9 +90,9 @@ public final class MarkdownEditor {
             let newline = text.characters[start...].firstIndex(of: "\n")
             let end = newline.map { text.characters.index(after: $0) } ?? text.endIndex
             if added.contains(line) {
-                text[start..<end].backgroundColor = .green.opacity(0.25)
+                text[start..<end].backgroundColor = .diffAdded
             } else if removed.contains(line) {
-                text[start..<end].backgroundColor = .red.opacity(0.25)
+                text[start..<end].backgroundColor = .diffRemoved
             }
             start = end
             line += 1

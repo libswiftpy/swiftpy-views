@@ -340,8 +340,13 @@ public struct CodeEditorContent: View {
                     ForEach(Array(diff.added.union(diff.removed)), id: \.self) { row in
                         if let anchor = anchors[row + 1] {
                             let bounds = geometry[anchor]
-                            (diff.removed.contains(row) ? Color.red : Color.green)
-                                .opacity(0.25)
+                            let isRemoved = diff.removed.contains(row)
+                            (isRemoved ? Color.diffRemoved : Color.diffAdded)
+                                // A solid edge, as Xcode marks a changed line.
+                                .overlay(alignment: .leading) {
+                                    (isRemoved ? Color.red : Color.green)
+                                        .frame(width: 3)
+                                }
                                 .frame(width: geometry.size.width, height: bounds.height)
                                 .position(x: geometry.size.width / 2, y: bounds.midY)
                         }

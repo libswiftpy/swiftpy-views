@@ -48,7 +48,7 @@ struct MarkdownEditorTests {
             run.backgroundColor.map { (String(text[run.range].characters), $0) }
         }
         #expect(marked.map(\.0) == ["added\n", "removed\n"])
-        #expect(marked.map(\.1) == [.green.opacity(0.25), .red.opacity(0.25)])
+        #expect(marked.map(\.1) == [.diffAdded, .diffRemoved])
 
         MarkdownEditor.mark(&text, added: [], removed: [])
         #expect(text.runs.allSatisfy { $0.backgroundColor == nil })
