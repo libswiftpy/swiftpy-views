@@ -207,14 +207,14 @@ private struct WidgetFrame<Content: View>: View {
 
     /// The device's screen width in portrait, which widget sizes go by.
     private static var screenWidth: CGFloat {
-        #if canImport(UIKit)
+        #if canImport(UIKit) && !os(visionOS)
         let screen = UIApplication.shared.connectedScenes
             .compactMap { ($0 as? UIWindowScene)?.screen }
             .first
         guard let bounds = screen?.bounds else { return 393 }
         return min(bounds.width, bounds.height)
         #else
-        // The Mac's widgets are the largest phone's sizes.
+        // The Mac's widgets are the largest phone's sizes; visionOS has no screen.
         return 430
         #endif
     }
