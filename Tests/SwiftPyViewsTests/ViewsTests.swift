@@ -198,4 +198,23 @@ struct ViewsTests {
         let button: SwiftPyViews.Button = try #require(py.main._button)
         #expect(button.role == "destructive")
     }
+
+    @Test func aButtonSaysWhileItsHeld() async throws {
+        await Interpreter.run("_held = Button('Left')")
+        let button: SwiftPyViews.Button = try #require(py.main._held)
+        #expect(Interpreter.evaluate("_held.is_pressed") == false)
+
+        button.pressed = true
+        #expect(Interpreter.evaluate("_held.is_pressed") == true)
+
+        // Read-only: what the finger does, not what Python says.
+        await Interpreter.run("""
+        try:
+            _held.is_pressed = False
+            _held_set = True
+        except AttributeError:
+            _held_set = False
+        """)
+        #expect(Interpreter.evaluate("_held_set") == false)
+    }
 }
