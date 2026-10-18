@@ -3,7 +3,7 @@ __all__ = [
     "View", "Alignment", "Font", "Edges", "Axis", "PickerStyle", "ButtonRole", "ButtonStyle", "ControlSize", "Color",
     "Text", "Markdown", "Image",
     "VStack", "HStack", "ZStack", "Group", "ScrollView", "Form", "Section", "Divider", "Rectangle",
-    "SizeContainer", "Sizing", "Transform", "Length", "LengthExpression", "Percent", "AlignmentValue",
+    "SizeContainer", "Sizing", "Transform", "Length", "LengthExpression", "Percent", "AlignmentValue", "AxisValue", "PickerStyleValue", "ButtonRoleValue", "ColorValue",
     "Button", "TextField", "Toggle", "Slider", "Stepper", "Picker", "Progress",
     "CodeEditor", "MarkdownEditor",
     "Pan", "Vector2",
@@ -82,16 +82,25 @@ class Axis(StrEnum):
     HORIZONTAL = "horizontal"
 
 
+type AxisValue = Axis | str
+
+
 class PickerStyle(StrEnum):
     """How a `Picker` shows its options."""
     MENU = "menu"
     SEGMENTED = "segmented"
 
 
+type PickerStyleValue = PickerStyle | str
+
+
 class ButtonRole(StrEnum):
     """What a `Button` is styled for."""
     DESTRUCTIVE = "destructive"
     CANCEL = "cancel"
+
+
+type ButtonRoleValue = ButtonRole | str
 
 
 class ButtonStyle(StrEnum):
@@ -130,6 +139,9 @@ class Color(StrEnum):
     PRIMARY = "primary"
     SECONDARY = "secondary"
     ACCENT = "accent"
+
+
+type ColorValue = Color | str
 
 
 class LengthExpression:

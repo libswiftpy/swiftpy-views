@@ -32,8 +32,8 @@ final class Button {
     /// The action to perform when the user triggers the button.
     var action: PyObject?
 
-    /// "destructive" or "cancel", which the button is styled for.
-    var role: String?
+    /// What the button is styled for: a `ButtonRole`, or its name.
+    var role: ButtonRoleValue?
 
     /// Whether the button is held down, for controls that act while held,
     /// such as arrows that move a game's character. Always False in a toolbar.
@@ -45,8 +45,8 @@ final class Button {
     ///
     /// label: A view, or a string to show as text.
     /// action: Called when the button is tapped. A coroutine it returns shows progress until it ends.
-    /// role: "destructive" or "cancel", which the button is styled for. Defaults to None.
-    init(label: PyObject, action: PyObject? = nil, role: String? = nil) {
+    /// role: A `ButtonRole`, such as `ButtonRole.DESTRUCTIVE`, or its name, which the button is styled for. Defaults to None.
+    init(label: PyObject, action: PyObject? = nil, role: ButtonRoleValue? = nil) {
         self.label = label
         self.action = action
         self.role = role
@@ -107,7 +107,7 @@ private struct ButtonContent: View {
     }
 
     private var role: ButtonRole? {
-        switch model.role {
+        switch model.role?.name {
         case "destructive": .destructive
         case "cancel": .cancel
         default: nil

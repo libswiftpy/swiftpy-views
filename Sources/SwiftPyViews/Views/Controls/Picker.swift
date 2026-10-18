@@ -18,8 +18,8 @@ final class Picker {
     var options: PyObject
     /// The chosen option's value, or None.
     var selection: String?
-    /// "menu" or "segmented".
-    var style: String
+    /// How it shows its options: a `PickerStyle`, or its name.
+    var style: PickerStyleValue
     /// Called with the chosen value when the user picks one. A change from
     /// code doesn't call it.
     var onChange: PyObject?
@@ -29,13 +29,13 @@ final class Picker {
     /// label: What the picker chooses.
     /// options: A list of strings, or a dict from each option's value to the title shown for it.
     /// selection: The chosen option's value. Defaults to None.
-    /// style: "menu" or "segmented". Defaults to "menu".
+    /// style: A `PickerStyle`, such as `PickerStyle.SEGMENTED`, or its name. Defaults to menu.
     /// on_change: Called with the chosen value when the user picks one.
     init(
         label: String,
         options: PyObject,
         selection: String? = nil,
-        style: String = "menu",
+        style: PickerStyleValue = "menu",
         onChange: PyObject? = nil
     ) {
         self.label = label
@@ -84,7 +84,7 @@ private struct PickerContent: View {
                 SwiftUI.Text(choice.title).tag(Optional(choice.value))
             }
         }
-        switch model.style {
+        switch model.style.name {
         case "segmented": picker.pickerStyle(.segmented)
         default: picker.pickerStyle(.menu)
         }

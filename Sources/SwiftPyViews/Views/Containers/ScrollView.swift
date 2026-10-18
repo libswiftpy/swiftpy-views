@@ -15,15 +15,15 @@ import SwiftUI
 final class ScrollView {
     /// The views, which can be changed after it's made.
     let content: Group
-    /// The direction it scrolls: "vertical" or "horizontal".
-    var axis: String
+    /// The direction it scrolls: an `Axis`, or its name.
+    var axis: AxisValue
     internal let contentHeight = ContentHeight()
 
     /// Creates a scroll view.
     ///
     /// content: Views, or strings to show as text.
-    /// axis: The direction it scrolls: "vertical" or "horizontal". Defaults to "vertical".
-    init(content: Unpack, axis: String = "vertical") {
+    /// axis: The direction it scrolls: an `Axis`, such as `Axis.HORIZONTAL`, or its name. Defaults to vertical.
+    init(content: Unpack, axis: AxisValue = "vertical") {
         self.content = Group(objects: content.values)
         self.axis = axis
     }
@@ -40,7 +40,7 @@ private struct ScrollViewContent: View {
 
     var body: some View {
         OfferedLengthsLayout(offered: offered) {
-            if model.axis == "horizontal" {
+            if model.axis.name == "horizontal" {
                 SwiftUI.ScrollView(.horizontal) {
                     SwiftUI.HStack { contentInReference }
                 }

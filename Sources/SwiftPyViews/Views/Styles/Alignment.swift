@@ -36,7 +36,8 @@ enum Alignment {
 
 /// `views.AlignmentValue`: an `Alignment`, or its name. Read back from Python,
 /// it's the `Alignment`.
-struct AlignmentValue: Equatable, ExpressibleByStringLiteral {
+struct AlignmentValue: StrEnumValue {
+    static let enumName = "Alignment"
     var name: String
 
     // A literal, so a default reads `= 'center'` in Python too.
@@ -45,27 +46,7 @@ struct AlignmentValue: Equatable, ExpressibleByStringLiteral {
     }
 }
 
-@MainActor
-extension AlignmentValue: PythonConvertible {
-    private static var enumType: PyObject? {
-        py.module("views")?.Alignment
-    }
-
-    static var pyType: PyType {
-        enumType.flatMap { PyType($0) } ?? .str
-    }
-
-    // An `Alignment` is a str too.
-    static func isConvertible(_ reference: PyRef) -> Bool {
-        String.isConvertible(reference)
-    }
-
-    static func fromPython(_ reference: PyRef) -> AlignmentValue {
-        AlignmentValue(stringLiteral: String.fromPython(reference))
-    }
-
-    func toPython() throws(PythonError) -> PyObject {
-        if let member = try? Self.enumType?(name) { return member }
-        return try name.toPython()
-    }
+// As the others in StrEnumValue.swift.
+@MainActor extension AlignmentValue: PythonConvertible {
+    static func isConvertible(_ reference: PyRef) -> Bool { String.isConvertible(reference) }
 }

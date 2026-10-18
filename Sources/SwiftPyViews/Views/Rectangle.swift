@@ -11,17 +11,17 @@ import SwiftUI
 @MainActor
 @Observable
 final class Rectangle {
-    /// The fill, or None for the foreground color.
-    var color: String?
+    /// The fill: a `Color`, or a hex string such as `#RRGGBB`; None for the foreground color.
+    var color: ColorValue?
     /// The corners' radius, or None to follow the corners around it.
     var cornerRadius: Double?
 
     /// Creates a rectangle.
     ///
-    /// color: The fill: a name such as "teal", or "#RRGGBB". Defaults to None, the foreground color.
+    /// color: The fill: a `Color`, such as `Color.TEAL`, or "#RRGGBB". Defaults to None, the foreground color.
     /// corner_radius: The corners' radius: 0 for square ones. Defaults to None, which rounds them to follow the corners around it, such as a card's.
-    init(color: String? = nil, cornerRadius: Double? = nil) throws {
-        if let color { _ = try SwiftUI.Color(pythonName: color) }
+    init(color: ColorValue? = nil, cornerRadius: Double? = nil) throws {
+        if let color { _ = try SwiftUI.Color(pythonName: color.name) }
         self.color = color
         self.cornerRadius = cornerRadius
     }
@@ -35,7 +35,7 @@ private struct RectangleContent: View {
     let model: Rectangle
 
     var body: some View {
-        if let fill = model.color.flatMap({ try? SwiftUI.Color(pythonName: $0) }) {
+        if let fill = model.color.flatMap({ try? SwiftUI.Color(pythonName: $0.name) }) {
             shape.fill(fill)
         } else {
             shape
