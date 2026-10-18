@@ -38,6 +38,7 @@ public func initialize() {
             Stepper.self,
             Picker.self,
             Progress.self,
+            Pan.self,
         )
 
         module.def(

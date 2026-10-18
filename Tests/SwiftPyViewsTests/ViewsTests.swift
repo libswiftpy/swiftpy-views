@@ -217,4 +217,22 @@ struct ViewsTests {
         """)
         #expect(Interpreter.evaluate("_held_set") == false)
     }
+
+    @Test func aPanGivesWhatWasDraggedOnce() async throws {
+        await Interpreter.run("_pan = Pan(Rectangle(Color.TEAL))")
+        let pan: SwiftPyViews.Pan = try #require(py.main._pan)
+        #expect(Interpreter.evaluate("_pan.consume_delta() == (0, 0)") == true)
+        #expect(Interpreter.evaluate("_pan.is_panning") == false)
+
+        pan.pending = CGSize(width: 12, height: -3)
+        await Interpreter.run("""
+        _delta = _pan.consume_delta()
+        _dx, _dy = _delta
+        """)
+        #expect(Interpreter.evaluate("type(_delta).__name__") == "Vector2")
+        #expect(Interpreter.evaluate("_delta.x") == 12.0)
+        #expect(Interpreter.evaluate("_dy") == -3.0)
+        // Consumed: the next call starts from nothing.
+        #expect(Interpreter.evaluate("_pan.consume_delta() == (0, 0)") == true)
+    }
 }

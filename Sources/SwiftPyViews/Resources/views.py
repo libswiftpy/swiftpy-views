@@ -6,14 +6,16 @@ __all__ = [
     "SizeContainer", "Sizing", "Transform", "Length", "LengthExpression", "Percent", "AlignmentValue",
     "Button", "TextField", "Toggle", "Slider", "Stepper", "Picker", "Progress",
     "CodeEditor", "MarkdownEditor",
+    "Pan", "Vector2",
     "Window", "animate",
 ]
 
 from builtins import View
 from enum import StrEnum
+from typing import NamedTuple
 from _views import (
     Button, CodeEditor, Divider, Form, Group, HStack, Image, Markdown,
-    MarkdownEditor, ModifiedView, Picker, Progress, Rectangle, ScrollView, Section,
+    MarkdownEditor, ModifiedView, Pan, Picker, Progress, Rectangle, ScrollView, Section,
     SizeContainer, Sizing, Slider, Stepper, Text, TextField, Toggle, Transform, VStack, Window,
     ZStack, animate,
 )
@@ -21,7 +23,7 @@ from _views import (
 # Report the public module, not the private one they live in.
 for _type in (
     Button, CodeEditor, Divider, Form, Group, HStack, Image, Markdown,
-    MarkdownEditor, ModifiedView, Picker, Progress, Rectangle, ScrollView, Section,
+    MarkdownEditor, ModifiedView, Pan, Picker, Progress, Rectangle, ScrollView, Section,
     SizeContainer, Sizing, Slider, Stepper, Text, TextField, Toggle, Transform, VStack, Window,
     ZStack,
 ):
@@ -215,3 +217,10 @@ Percent._interface = '''class Percent(LengthExpression):
     """
 
     def __init__(self, value: float) -> None: ...'''
+
+
+class Vector2(NamedTuple):
+    """An `x` and a `y`, such as how far a `Pan` was dragged: in points, to
+    the right and down."""
+    x: float
+    y: float
