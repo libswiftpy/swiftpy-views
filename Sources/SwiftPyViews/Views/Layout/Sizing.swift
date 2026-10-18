@@ -26,6 +26,9 @@ final class Sizing {
     var minHeight: Length?
     /// The tallest it gets.
     var maxHeight: Length?
+    /// Its width over its height, such as 1 for a square: the other side follows
+    /// from the one given, and with neither, it fits the space it's offered.
+    var aspectRatio: Double?
 
     /// Creates a sized view.
     ///
@@ -36,6 +39,7 @@ final class Sizing {
     /// max_width: The widest it gets. Defaults to None.
     /// min_height: The shortest it gets. Defaults to None.
     /// max_height: The tallest it gets. Defaults to None.
+    /// aspect_ratio: Its width over its height, such as 1 for a square. Defaults to None.
     init(
         content: PyObject,
         width: Length? = nil,
@@ -43,7 +47,8 @@ final class Sizing {
         minWidth: Length? = nil,
         maxWidth: Length? = nil,
         minHeight: Length? = nil,
-        maxHeight: Length? = nil
+        maxHeight: Length? = nil,
+        aspectRatio: Double? = nil
     ) {
         self.content = content
         self.width = width
@@ -52,6 +57,7 @@ final class Sizing {
         self.maxWidth = maxWidth
         self.minHeight = minHeight
         self.maxHeight = maxHeight
+        self.aspectRatio = aspectRatio
     }
 
     func body() -> AnyView {
@@ -62,8 +68,8 @@ final class Sizing {
 extension Sizing {
     static func installModifier(on view: PyType) {
         view.function(
-            "size(self, width: Length | None = None, height: Length | None = None, min_width: Length | None = None, max_width: Length | None = None, min_height: Length | None = None, max_height: Length | None = None) -> Sizing",
-            "Sizes the view, as a `Sizing` whose sizes can be changed later: points, or a `Percent` of the nearest `SizeContainer`. None leaves one to the view."
+            "size(self, width: Length | None = None, height: Length | None = None, min_width: Length | None = None, max_width: Length | None = None, min_height: Length | None = None, max_height: Length | None = None, aspect_ratio: float | None = None) -> Sizing",
+            "Sizes the view, as a `Sizing` whose sizes can be changed later: points, or a `Percent` of the nearest `SizeContainer`. None leaves one to the view. `aspect_ratio`, width over height, gives the side left out, as in `size(width=Percent(30), aspect_ratio=1)` for a square."
         ) { receiver, args in
             PyAPI.return {
                 let arguments = PyArguments(method: receiver, args)
@@ -74,10 +80,29 @@ extension Sizing {
                     minWidth: try Length?.cast(arguments, 3),
                     maxWidth: try Length?.cast(arguments, 4),
                     minHeight: try Length?.cast(arguments, 5),
-                    maxHeight: try Length?.cast(arguments, 6)
+                    maxHeight: try Length?.cast(arguments, 6),
+                    aspectRatio: try Double?.cast(arguments, 7)
                 )
             }
         }
+    }
+}
+
+extension Sizing {
+    /// The side left out, from the one given and the ratio; both given win.
+    static func size(width: CGFloat?, height: CGFloat?, aspectRatio: Double?) -> (width: CGFloat?, height: CGFloat?) {
+        guard let ratio = validRatio(aspectRatio) else { return (width, height) }
+        switch (width, height) {
+        case let (width?, nil): return (width, width / ratio)
+        case let (nil, height?): return (height * ratio, height)
+        default: return (width, height)
+        }
+    }
+
+    // A ratio of 0 or less, or not a number, has no shape to keep.
+    static func validRatio(_ ratio: Double?) -> CGFloat? {
+        guard let ratio, ratio.isFinite, ratio > 0 else { return nil }
+        return CGFloat(ratio)
     }
 }
 
@@ -92,9 +117,21 @@ private struct SizingContent: View {
         let maxWidth = horizontal(model.maxWidth).map { max($0, minWidth ?? 0) }
         let maxHeight = vertical(model.maxHeight).map { max($0, minHeight ?? 0) }
 
-        (model.content.asView ?? AnyView(EmptyView()))
-            .frame(width: horizontal(model.width), height: vertical(model.height))
+        let size = Sizing.size(width: horizontal(model.width), height: vertical(model.height), aspectRatio: model.aspectRatio)
+
+        content
+            .frame(width: size.width, height: size.height)
             .frame(minWidth: minWidth, maxWidth: maxWidth, minHeight: minHeight, maxHeight: maxHeight)
+    }
+
+    // With neither side given, as large as fits.
+    @ViewBuilder private var content: some View {
+        let view = model.content.asView ?? AnyView(EmptyView())
+        if let ratio = Sizing.validRatio(model.aspectRatio), model.width == nil, model.height == nil {
+            view.aspectRatio(ratio, contentMode: .fit)
+        } else {
+            view
+        }
     }
 
     // Never below 0, which SwiftUI would log as an invalid frame.

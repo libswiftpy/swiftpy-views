@@ -115,6 +115,23 @@ struct LayoutTests {
         #expect(unresolved(150, 10) == "red")
     }
 
+    @Test func keepsAnAspectRatio() async throws {
+        // 30% wide and square: 60 by 60 in the corner.
+        let square = try await render("""
+        _view = SizeContainer(_red.size(width=Percent(30), aspect_ratio=1), alignment="top-leading").size(width=200, height=200)
+        """)
+        #expect(square(30, 30) == "red")
+        #expect(square(30, 90) == "blue")
+        #expect(square(90, 30) == "blue")
+
+        // No side given: as large as fits, twice as wide as tall.
+        let wide = try await render("""
+        _view = SizeContainer(_red.size(aspect_ratio=2), alignment="top").size(width=200, height=200)
+        """)
+        #expect(wide(100, 50) == "red")
+        #expect(wide(100, 150) == "blue")
+    }
+
     @Test func offsetsByPercent() async throws {
         let moved = try await render("""
         _piece = _red.size(width=Percent(50), height=Percent(100)).transform()
