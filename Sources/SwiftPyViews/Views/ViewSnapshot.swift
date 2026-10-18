@@ -13,13 +13,25 @@ import AppKit
 /// Draws a view by hosting it in a window, so views backed by UIKit or AppKit
 /// (text fields, scroll views, Markdown) draw too, which `ImageRenderer` can't.
 @MainActor
-enum ViewSnapshot {
+public enum ViewSnapshot {
+    /// The view drawn at `width` points, by default the window's, on the app's background.
+    public static func cgImage(of view: AnyView, width: CGFloat? = nil) async -> CGImage? {
+        let image = await image(of: view, width: width, delay: 0, background: nil)
+        #if canImport(UIKit)
+        return image.cgImage
+        #else
+        return image.cgImage(forProposedRect: nil, context: nil, hints: nil)
+        #endif
+    }
+
     static func image(of view: AnyView, width: CGFloat?, delay: Double, background: Color?) async -> PlatformImage {
         #if canImport(UIKit)
         let scene = UIApplication.shared.connectedScenes
             .compactMap { $0 as? UIWindowScene }
             .first { $0.keyWindow != nil }
-        guard let scene, let keyWindow = scene.keyWindow else {
+        // In the background a window doesn't draw, as a run kept going there.
+        guard UIApplication.shared.applicationState != .background,
+              let scene, let keyWindow = scene.keyWindow else {
             return rendered(view, width: width ?? 393, background: background)
         }
         let width = width ?? keyWindow.bounds.width
@@ -107,7 +119,7 @@ enum ViewSnapshot {
         try? await Task.sleep(for: .milliseconds(33) + .seconds(max(0, delay)))
     }
 
-    // Without a window to host it in, as in tests without an app.
+    // Without a window to host it in, as in tests without an app or in the background.
     private static func rendered(_ view: AnyView, width: CGFloat, background: Color?) -> PlatformImage {
         let renderer = ImageRenderer(content: sized(view, width: width, background: background))
         #if canImport(UIKit)
