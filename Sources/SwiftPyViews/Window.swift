@@ -164,7 +164,11 @@ class Window: Identifiable {
         }
         #endif
 
-        EnvironmentValues().dismissWindow(value: id)
+        // Only show() on an app with several windows opens one.
+        let environment = EnvironmentValues()
+        if environment.supportsMultipleWindows {
+            environment.dismissWindow(value: id)
+        }
         Window.presentedWindows.remove(id)
     }
 
