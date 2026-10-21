@@ -3,18 +3,20 @@
 //  swiftpy-views
 //
 
-import AVFoundation
+// AVAudioPlayer is Sendable on iOS, but not yet on macOS.
+@preconcurrency import AVFoundation
 import SwiftPy
 
 /// Plays a sound file, or encoded audio bytes.
 @Scriptable
 @MainActor
 final class AudioPlayer {
-    private let player: AVAudioPlayer
+    private nonisolated let player: AVAudioPlayer
     private let delegate = Delegate()
     private var waiters: [CheckedContinuation<Void, any Error>] = []
-    // Between play() and the audio session becoming active.
+    // Between play() and the player starting, off the main thread.
     private var isStarting = false
+    private var isStoppedWhileStarting = false
 
     // Playing players keep themselves alive, so a sound nothing refers to plays on.
     internal private(set) static var playing: [ObjectIdentifier: AudioPlayer] = [:]
@@ -87,36 +89,39 @@ final class AudioPlayer {
     func play() {
         guard !isPlaying else { return }
         isStarting = true
+        isStoppedWhileStarting = false
         Self.playing[ObjectIdentifier(self)] = self
-        #if os(iOS) || os(visionOS)
-        Self.activateSession { [weak self] in self?.start() }
-        #else
-        start()
-        #endif
+        Task {
+            started(await start())
+        }
     }
 
-    private func start() {
-        guard isStarting else { return }
+    // Setting the category and `play()`, which activates the session, block.
+    @concurrent
+    private nonisolated func start() async -> Bool {
+        #if os(iOS) || os(visionOS)
+        // Plays with the silent switch on, as media does, unless the app
+        // chose a category that isn't muted by it.
+        let session = AVAudioSession.sharedInstance()
+        if session.category == .soloAmbient || session.category == .ambient {
+            try? session.setCategory(.playback)
+        }
+        #endif
+        return player.play()
+    }
+
+    private func started(_ didStart: Bool) {
+        guard isStarting else {
+            // Paused or stopped while it started.
+            player.pause()
+            if isStoppedWhileStarting { player.currentTime = 0 }
+            return
+        }
         isStarting = false
-        if !player.play() {
+        if !didStart {
             finish(throwing: Self.error("playback couldn't start"))
         }
     }
-
-    #if os(iOS) || os(visionOS)
-    private static let sessionQueue = DispatchQueue(label: "swiftpy-audio.session")
-
-    // Activating blocks, so it's done off the main thread.
-    private static func activateSession(then start: @escaping @MainActor () -> Void) {
-        sessionQueue.async {
-            let session = AVAudioSession.sharedInstance()
-            // Plays with the silent switch on, as media does.
-            try? session.setCategory(.playback)
-            try? session.setActive(true)
-            Task { @MainActor in start() }
-        }
-    }
-    #endif
 
     /// Pauses, keeping the position.
     func pause() {
@@ -127,6 +132,7 @@ final class AudioPlayer {
 
     /// Stops playback and resets the position to zero.
     func stop() {
+        isStoppedWhileStarting = isStarting
         isStarting = false
         player.stop()
         player.currentTime = 0
