@@ -6,6 +6,9 @@
 // AVAudioPlayer is Sendable on iOS, but not yet on macOS.
 @preconcurrency import AVFoundation
 import SwiftPy
+#if canImport(UIKit)
+import UIKit
+#endif
 
 /// Plays a sound file, or encoded audio bytes.
 @Scriptable
@@ -20,13 +23,16 @@ final class AudioPlayer {
 
     // Playing players keep themselves alive, so a sound nothing refers to plays on.
     internal private(set) static var playing: [ObjectIdentifier: AudioPlayer] = [:]
+    // The category is one `start()` set, not the app's, so it may change it.
+    private static var setsCategory = false
 
     /// Loads a local file or encoded audio bytes. Relative paths use the notebook's working directory. Doesn't start playback.
     ///
     /// source: A path, as a str or a `PathLike`, or the bytes of an encoded file such as MP3, M4A or WAV.
     /// volume: From 0.0 to 1.0. Defaults to 1.0.
     /// loop: Whether it repeats until stopped. Defaults to False.
-    init(source: AudioSource, volume: Double = 1.0, loop: Bool = false) throws {
+    /// mix: Whether it plays over other apps' audio, such as music, rather than pausing it. Defaults to False, which mixes only when it starts in the background, where iOS allows nothing else.
+    init(source: AudioSource, volume: Double = 1.0, loop: Bool = false, mix: Bool = false) throws {
         do {
             switch source {
             case .data(let data):
@@ -48,8 +54,12 @@ final class AudioPlayer {
         player.delegate = delegate
         self.volume = volume
         self.loop = loop
+        self.mix = mix
         delegate.owner = self
     }
+
+    /// Whether it plays over other apps' audio rather than pausing it. Takes effect when it next plays.
+    var mix: Bool = false
 
     /// From 0.0 to 1.0.
     var volume: Double {
@@ -91,23 +101,36 @@ final class AudioPlayer {
         isStarting = true
         isStoppedWhileStarting = false
         Self.playing[ObjectIdentifier(self)] = self
+        #if canImport(UIKit)
+        // Only a session that mixes with others may start in the background.
+        let mixes = mix || UIApplication.shared.applicationState == .background
+        #else
+        let mixes = mix
+        #endif
+        let setsCategory = Self.setsCategory
         Task {
-            started(await start())
+            let (didStart, didSetCategory) = await start(mixing: mixes, setsCategory: setsCategory)
+            if didSetCategory { Self.setsCategory = true }
+            started(didStart)
         }
     }
 
     // Setting the category and `play()`, which activates the session, block.
     @concurrent
-    private nonisolated func start() async -> Bool {
+    private nonisolated func start(mixing mixes: Bool, setsCategory: Bool) async -> (didStart: Bool, didSetCategory: Bool) {
+        var didSetCategory = false
         #if os(iOS) || os(visionOS)
         // Plays with the silent switch on, as media does, unless the app
         // chose a category that isn't muted by it.
         let session = AVAudioSession.sharedInstance()
-        if session.category == .soloAmbient || session.category == .ambient {
-            try? session.setCategory(.playback)
+        let options: AVAudioSession.CategoryOptions = mixes ? .mixWithOthers : []
+        let isMuted = session.category == .soloAmbient || session.category == .ambient
+        let isOursToChange = setsCategory && session.category == .playback && session.categoryOptions != options
+        if isMuted || isOursToChange {
+            didSetCategory = (try? session.setCategory(.playback, options: options)) != nil
         }
         #endif
-        return player.play()
+        return (player.play(), didSetCategory)
     }
 
     private func started(_ didStart: Bool) {

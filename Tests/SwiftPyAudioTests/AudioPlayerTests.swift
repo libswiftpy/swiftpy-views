@@ -58,21 +58,22 @@ struct AudioPlayerTests {
         await Interpreter.run("_player = AudioPlayer(_silence)")
         let duration: Double = try #require(evaluate("_player.duration"))
         #expect(abs(duration - 0.3) < 0.01)
-        #expect(evaluate("repr([_player.volume, _player.rate, _player.loop, _player.position, _player.is_playing])")
-            == "[1.0, 1.0, False, 0.0, False]")
+        #expect(evaluate("repr([_player.volume, _player.rate, _player.loop, _player.position, _player.is_playing, _player.mix])")
+            == "[1.0, 1.0, False, 0.0, False, False]")
     }
 
     @Test func propertiesReadBackWhatWasSet() async throws {
         await Interpreter.run("""
-        _player = AudioPlayer(_silence, volume=0.5, loop=True)
-        _given = [_player.volume, _player.loop]
+        _player = AudioPlayer(_silence, volume=0.5, loop=True, mix=True)
+        _given = [_player.volume, _player.loop, _player.mix]
         _player.volume = 3
         _player.rate = 1.5
         _player.loop = False
+        _player.mix = False
         _player.position = 0.1
         """)
-        #expect(evaluate("repr(_given)") == "[0.5, True]")
-        #expect(evaluate("repr([_player.volume, _player.rate, _player.loop])") == "[1.0, 1.5, False]")
+        #expect(evaluate("repr(_given)") == "[0.5, True, True]")
+        #expect(evaluate("repr([_player.volume, _player.rate, _player.loop, _player.mix])") == "[1.0, 1.5, False, False]")
         let position: Double = try #require(evaluate("_player.position"))
         #expect(abs(position - 0.1) < 0.01)
     }
