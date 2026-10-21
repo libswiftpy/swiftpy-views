@@ -86,7 +86,7 @@ private struct ButtonContent: View {
 
     private var button: some View {
         SwiftUI.Button(role: role) {
-            if let task = model.action?.callback() {
+            if let task = model.action?.callback(isUserAction: true) {
                 isProgressing = true
                 Task {
                     await task.value

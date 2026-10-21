@@ -55,7 +55,7 @@ final class TextField {
     }
 
     internal func submit() {
-        onSubmit?.callback()
+        onSubmit?.callback(isUserAction: true)
     }
 }
 

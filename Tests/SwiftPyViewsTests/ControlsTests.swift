@@ -104,6 +104,25 @@ struct ControlsTests {
         #expect(sync.callback() == nil)
     }
 
+    @Test func aCoroutineTheUserStartedRunsAsAViewTask() async throws {
+        await Interpreter.run("""
+        import asyncio
+        async def _tapped():
+            await asyncio.sleep(0.01)
+        """)
+        let action: PyObject = try #require(py.main._tapped)
+
+        let tapped = try #require(action.callback(isUserAction: true))
+        #expect(ViewTasks.shared.isRunning)
+        await tapped.value
+        #expect(!ViewTasks.shared.isRunning)
+
+        // `on_appear`'s don't count.
+        let appeared = try #require(action.callback())
+        #expect(!ViewTasks.shared.isRunning)
+        await appeared.value
+    }
+
     @Test func progressAndDividerAreViews() async {
         await Interpreter.run("""
         _progress = Progress(0.5, label="Loading")
