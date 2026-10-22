@@ -8,7 +8,8 @@ import SwiftUI
 
 // The strings Python names colors, fonts and edges with.
 
-extension Color {
+public extension Color {
+    /// A `views.Color` name, or "#RRGGBB" or "#RRGGBBAA".
     init(pythonName name: String) throws {
         if name.hasPrefix("#") {
             self = try Self.hex(name)

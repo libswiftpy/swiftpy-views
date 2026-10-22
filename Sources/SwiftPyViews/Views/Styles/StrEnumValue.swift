@@ -38,20 +38,22 @@ struct ButtonRoleValue: StrEnumValue {
 
 /// `views.ColorValue`: a `Color`, or a hex string such as "#RRGGBB". Read
 /// back from Python, a hex string stays one.
-struct ColorValue: StrEnumValue {
-    static let enumName = "Color"
-    var name: String
+public struct ColorValue: StrEnumValue {
+    public static let enumName = "Color"
+    public var name: String
 
-    init(stringLiteral name: String) {
+    public init(stringLiteral name: String) {
         self.name = name
     }
 }
 
-/// A member of one of `views`' StrEnums, or its name. Read back from Python,
-/// it's the member.
-protocol StrEnumValue: Equatable, ExpressibleByStringLiteral where StringLiteralType == String {
-    /// The enum's name in `views`, such as "Alignment".
+/// A member of one of a module's StrEnums, or its name. Read back from
+/// Python, it's the member.
+public protocol StrEnumValue: Equatable, ExpressibleByStringLiteral where StringLiteralType == String {
+    /// The enum's name in its module, such as "Alignment".
     static var enumName: String { get }
+    /// The module that defines it; `views` by default.
+    static var moduleName: String { get }
     var name: String { get }
 }
 
@@ -71,13 +73,17 @@ protocol StrEnumValue: Equatable, ExpressibleByStringLiteral where StringLiteral
 }
 
 @MainActor extension ColorValue: PythonConvertible {
-    static func isConvertible(_ reference: PyRef) -> Bool { String.isConvertible(reference) }
+    public static func isConvertible(_ reference: PyRef) -> Bool { String.isConvertible(reference) }
+}
+
+public extension StrEnumValue {
+    static var moduleName: String { "views" }
 }
 
 @MainActor
-extension StrEnumValue {
+public extension StrEnumValue {
     private static var enumType: PyObject? {
-        py.module("views")?[dynamicMember: enumName]
+        py.module(moduleName)?[dynamicMember: enumName]
     }
 
     static var pyType: PyType {

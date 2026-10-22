@@ -51,16 +51,18 @@ private struct FormContent: View {
     }
 }
 
-// A form has no height of its own: given none, as in a notebook, it's as
-// tall as it is wide, and scrolls within that.
-private struct SquareWhenUnbounded: Layout {
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+// A form, or a drawing canvas, has no height of its own: given none, as in a
+// notebook, it's as tall as it is wide.
+public struct SquareWhenUnbounded: Layout {
+    public init() {}
+
+    public func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         let width = proposal.width.flatMap { $0.isFinite ? $0 : nil } ?? 320
         let height = proposal.height.flatMap { $0.isFinite ? $0 : nil } ?? width
         return CGSize(width: width, height: height)
     }
 
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+    public func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
         for subview in subviews {
             subview.place(at: bounds.origin, proposal: ProposedViewSize(bounds.size))
         }

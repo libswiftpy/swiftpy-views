@@ -40,12 +40,12 @@ extension PyObject {
     /// Calls a Python callback. A coroutine it returns runs to its end, which
     /// the returned task waits for; `isUserAction` counts it in ``ViewTasks``.
     @discardableResult
-    func callback(isUserAction: Bool = false) -> Task<Void, Never>? {
+    public func callback(isUserAction: Bool = false) -> Task<Void, Never>? {
         run(try? self(), isUserAction: isUserAction)
     }
 
     @discardableResult
-    func callback(with value: some PythonConvertible) -> Task<Void, Never>? {
+    public func callback(with value: some PythonConvertible) -> Task<Void, Never>? {
         run(try? self(value), isUserAction: false)
     }
 
