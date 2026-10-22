@@ -19,6 +19,10 @@ let package = Package(
             name: "SwiftPyAudio",
             targets: ["SwiftPyAudio"]
         ),
+        .library(
+            name: "SwiftPyDrawing",
+            targets: ["SwiftPyDrawing"]
+        ),
     ],
     dependencies: [
         .package(url: "https://github.com/felfoldy/SwiftPy", from: "0.30.0"),
@@ -44,6 +48,11 @@ let package = Package(
             dependencies: ["SwiftPy"],
             resources: [.copy("Resources/audio.py")],
         ),
+        .target(
+            name: "SwiftPyDrawing",
+            dependencies: ["SwiftPy", "SwiftPyViews"],
+            resources: [.copy("Resources/drawing.py")],
+        ),
         .testTarget(
             name: "SyntaxHighlightTests",
             dependencies: ["SyntaxHighlight"],
@@ -55,6 +64,10 @@ let package = Package(
         .testTarget(
             name: "SwiftPyAudioTests",
             dependencies: ["SwiftPyAudio"],
+        ),
+        .testTarget(
+            name: "SwiftPyDrawingTests",
+            dependencies: ["SwiftPyDrawing"],
         ),
     ]
 )
