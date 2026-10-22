@@ -141,7 +141,7 @@ enum ViewModifiers {
             "Calls `action` when the view appears."
         ) { receiver, args in
             modify(receiver, args) { arguments in
-                let action = try PyObject.cast(arguments, 1)
+                let action = try Callback.cast(arguments, 1)
                 return { AnyView($0.onAppear { action.callback() }) }
             }
         }

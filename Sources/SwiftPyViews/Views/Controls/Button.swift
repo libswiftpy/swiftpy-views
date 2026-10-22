@@ -30,7 +30,7 @@ final class Button {
     }
 
     /// The action to perform when the user triggers the button.
-    var action: PyObject?
+    var action: Callback?
 
     /// What the button is styled for: a `ButtonRole`, or its name.
     var role: ButtonRoleValue?
@@ -46,7 +46,7 @@ final class Button {
     /// label: A view, or a string to show as text.
     /// action: Called when the button is tapped. A coroutine it returns shows progress until it ends.
     /// role: A `ButtonRole`, such as `ButtonRole.DESTRUCTIVE`, or its name, which the button is styled for. Defaults to None.
-    init(label: PyObject, action: PyObject? = nil, role: ButtonRoleValue? = nil) {
+    init(label: PyObject, action: Callback? = nil, role: ButtonRoleValue? = nil) {
         self.label = label
         self.action = action
         self.role = role

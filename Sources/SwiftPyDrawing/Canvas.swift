@@ -58,7 +58,7 @@ final class Canvas {
 
     /// Called with the strokes when the user changes them. A change from code
     /// doesn't call it.
-    var onChange: PyObject?
+    var onChange: Callback?
 
     internal private(set) var drawing = PKDrawing()
     /// Counts changes from code, for the canvas view to take them.
@@ -79,7 +79,7 @@ final class Canvas {
     /// tool_picker: Whether the system's tool picker shows while it's drawn on. Defaults to True.
     /// pencil_only: Whether only Apple Pencil draws, a finger scrolling past it. Defaults to False.
     init(
-        onChange: PyObject? = nil,
+        onChange: Callback? = nil,
         tool: ToolValue = "pen",
         color: ColorValue = "black",
         width: Double? = nil,

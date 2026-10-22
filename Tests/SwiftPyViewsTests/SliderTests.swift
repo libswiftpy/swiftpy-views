@@ -17,9 +17,9 @@ struct SliderTests {
 
     @Test func pythonBuildsASliderAndHearsOnlyTheUsersChanges() async throws {
         await Interpreter.run("""
-        _changes = []
+        _slider_changes = []
         _slider = views.Slider(value=3, steps=10, label="Level",
-                               on_change=lambda value: _changes.append(value))
+                               on_change=lambda value: _slider_changes.append(value))
         """)
         let slider: Slider = try #require(py.main._slider)
         #expect(slider.value == 3)
@@ -31,7 +31,7 @@ struct SliderTests {
         slider.userChange(to: 4)
         await Interpreter.run("_slider.value = 7")
         #expect(slider.value == 7)
-        #expect(Interpreter.evaluate("_changes") == [4.0])
+        #expect(Interpreter.evaluate("_slider_changes") == [4.0])
     }
 
     @Test func ticksMarkEachStop() {

@@ -3,6 +3,7 @@
 //  swiftpy-views
 //
 
+import Synchronization
 import Testing
 import SwiftPy
 @testable import SwiftPyViews
@@ -84,6 +85,23 @@ struct ControlsTests {
         dict.userChange(to: "g")
         #expect(Interpreter.evaluate("_dict.selection") == "g")
         #expect(Interpreter.evaluate("_changes") == ["g"])
+    }
+
+    @Test func aCallbackPrintsAndRaisesWhereTheRunThatSetItUpDoes() async throws {
+        let printed = Mutex("")
+        await Interpreter.withOutput(to: { text in printed.withLock { $0 += text } }) {
+            await Interpreter.run("""
+            _moved = Slider(on_change=lambda value: print("moved to", value))
+            _broken = Slider(on_change=lambda value: 1 / 0)
+            """)
+        }
+        let moved: Slider = try #require(py.main._moved)
+        moved.userChange(to: 3)
+        #expect(printed.withLock { $0 }.contains("moved to 3.0"))
+
+        let broken: Slider = try #require(py.main._broken)
+        broken.userChange(to: 1)
+        #expect(printed.withLock { $0 }.contains("ZeroDivisionError"))
     }
 
     @Test func anAsyncCallbackRunsToItsEnd() async throws {

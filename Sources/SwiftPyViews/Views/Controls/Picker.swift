@@ -22,7 +22,7 @@ final class Picker {
     var style: PickerStyleValue
     /// Called with the chosen value when the user picks one. A change from
     /// code doesn't call it.
-    var onChange: PyObject?
+    var onChange: Callback?
 
     /// Creates a picker.
     ///
@@ -36,7 +36,7 @@ final class Picker {
         options: PyObject,
         selection: String? = nil,
         style: PickerStyleValue = "menu",
-        onChange: PyObject? = nil
+        onChange: Callback? = nil
     ) {
         self.label = label
         self.options = options

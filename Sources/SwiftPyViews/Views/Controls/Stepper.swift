@@ -23,7 +23,7 @@ final class Stepper {
     var step: Int
     /// Called with the new number when the user steps it. A change from code
     /// doesn't call it.
-    var onChange: PyObject?
+    var onChange: Callback?
 
     /// Creates a stepper.
     ///
@@ -39,7 +39,7 @@ final class Stepper {
         minimum: Int? = nil,
         maximum: Int? = nil,
         step: Int = 1,
-        onChange: PyObject? = nil
+        onChange: Callback? = nil
     ) {
         self.label = label
         self.value = value

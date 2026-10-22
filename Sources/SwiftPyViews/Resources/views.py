@@ -11,8 +11,9 @@ __all__ = [
 ]
 
 from builtins import View
+from collections.abc import Callable
 from enum import StrEnum
-from typing import NamedTuple
+from typing import Any, NamedTuple
 from _views import (
     Button, CodeEditor, Divider, Form, Group, HStack, Image, Markdown,
     MarkdownEditor, ModifiedView, Pan, Picker, Progress, Rectangle, ScrollView, Section,
@@ -48,6 +49,11 @@ class Alignment(StrEnum):
 
 # What a container's `alignment` takes: the enum, or its name.
 type AlignmentValue = Alignment | str
+
+
+# A function a view calls back. What it prints, displays or raises shows
+# where the code that set it up shows its output.
+type Callback = Callable[..., Any]
 
 
 class Font(StrEnum):

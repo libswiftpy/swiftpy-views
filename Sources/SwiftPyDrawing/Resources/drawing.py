@@ -6,7 +6,7 @@ __all__ = ["Canvas", "Stroke", "Tool", "ToolValue", "Point", "PointValue", "Boun
 from enum import StrEnum
 from typing import NamedTuple
 # What the canvas and its strokes are typed with.
-from views import Color, ColorValue, Image
+from views import Callback, Color, ColorValue, Image
 from _drawing import Canvas, Stroke
 
 # Report the public module, not the private one they live in.

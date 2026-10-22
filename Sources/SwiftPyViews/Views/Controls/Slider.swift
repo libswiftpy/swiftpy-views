@@ -27,7 +27,7 @@ public final class Slider {
     public var label: String
     /// Called with the new value when the user changes it. A change from code
     /// doesn't call it.
-    public var onChange: PyObject?
+    public var onChange: Callback?
 
     /// Past this many stops, ticks would draw a solid bar.
     internal static let tickLimit = 50
@@ -42,7 +42,7 @@ public final class Slider {
         value: Double = 0,
         steps: Int? = nil,
         label: String = "",
-        onChange: PyObject? = nil
+        onChange: Callback? = nil
     ) {
         self.value = value
         self.steps = steps

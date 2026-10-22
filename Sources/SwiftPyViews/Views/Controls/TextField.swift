@@ -19,9 +19,9 @@ final class TextField {
     var secure: Bool
     /// Called with the new text when the user changes it. A change from code
     /// doesn't call it.
-    var onChange: PyObject?
+    var onChange: Callback?
     /// Called when the user presses Return.
-    var onSubmit: PyObject?
+    var onSubmit: Callback?
 
     /// Creates a text field.
     ///
@@ -34,8 +34,8 @@ final class TextField {
         prompt: String = "",
         text: String = "",
         secure: Bool = false,
-        onChange: PyObject? = nil,
-        onSubmit: PyObject? = nil
+        onChange: Callback? = nil,
+        onSubmit: Callback? = nil
     ) {
         self.prompt = prompt
         self.text = text
