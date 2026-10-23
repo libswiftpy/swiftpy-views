@@ -2,7 +2,7 @@ __doc__ = "Views to build user interfaces with."
 __all__ = [
     "View", "Alignment", "Font", "Edges", "Axis", "PickerStyle", "ButtonRole", "ButtonStyle", "ControlSize", "Color",
     "Text", "Markdown", "Image",
-    "VStack", "HStack", "ZStack", "Group", "ScrollView", "Form", "Section", "Divider", "Rectangle",
+    "VStack", "HStack", "ZStack", "Group", "ScrollView", "Form", "Section", "Divider", "Rectangle", "Shape", "ShapePoints",
     "SizeContainer", "Sizing", "Transform", "Length", "LengthExpression", "Percent", "AlignmentValue", "AxisValue", "PickerStyleValue", "ButtonRoleValue", "ColorValue",
     "Button", "TextField", "Toggle", "Slider", "Stepper", "Picker", "Progress",
     "CodeEditor", "MarkdownEditor",
@@ -11,12 +11,12 @@ __all__ = [
 ]
 
 from builtins import View
-from collections.abc import Callable
+from collections.abc import Callable, Iterable, Sequence
 from enum import StrEnum
 from typing import Any, NamedTuple
 from _views import (
     Button, CodeEditor, Divider, Form, Group, HStack, Image, Markdown,
-    MarkdownEditor, ModifiedView, Pan, Picker, Progress, Rectangle, ScrollView, Section,
+    MarkdownEditor, ModifiedView, Pan, Picker, Progress, Rectangle, ScrollView, Section, Shape,
     SizeContainer, Sizing, Slider, Stepper, Text, TextField, Toggle, Transform, VStack, Window,
     ZStack, animate,
 )
@@ -24,7 +24,7 @@ from _views import (
 # Report the public module, not the private one they live in.
 for _type in (
     Button, CodeEditor, Divider, Form, Group, HStack, Image, Markdown,
-    MarkdownEditor, ModifiedView, Pan, Picker, Progress, Rectangle, ScrollView, Section,
+    MarkdownEditor, ModifiedView, Pan, Picker, Progress, Rectangle, ScrollView, Section, Shape,
     SizeContainer, Sizing, Slider, Stepper, Text, TextField, Toggle, Transform, VStack, Window,
     ZStack,
 ):
@@ -54,6 +54,11 @@ type AlignmentValue = Alignment | str
 # A function a view calls back. What it prints, displays or raises shows
 # where the code that set it up shows its output.
 type Callback = Callable[..., Any]
+
+
+# What a `Shape` runs through: `(x, y)` tuples, or anything whose first two
+# items are x and y, such as a drawing's `Point`s.
+type ShapePoints = Iterable[Sequence[float]]
 
 
 class Font(StrEnum):

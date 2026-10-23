@@ -87,6 +87,28 @@ struct DrawingTests {
         #expect(Interpreter.evaluate("_changes") == [1])
     }
 
+    @Test func aStrokeCanBecomeAShapeAndLeaveTheCanvas() async throws {
+        await Interpreter.run("""
+        _shapes = views.Group()
+        def _filled(strokes):
+            for stroke in strokes:
+                _shapes.append(views.Shape(stroke.points, fill=views.Color.TEAL))
+            _shape_canvas.strokes = []
+        _shape_canvas = drawing.Canvas(on_change=_filled)
+        _scene = views.ZStack(_shapes, _shape_canvas)
+        """)
+        let canvas: Canvas = try #require(py.main._shape_canvas)
+        let stroke = try Stroke(points: [try point(0, 0), try point(40, 0), try point(20, 30)])
+        canvas.userChange(to: PKDrawing(strokes: [stroke.value]))
+
+        #expect(Interpreter.evaluate("len(_shapes)") == 1)
+        #expect(Interpreter.evaluate("_shapes[0].points[1] == (40.0, 0.0)") == true)
+        #expect(canvas.strokes.isEmpty)
+        // Undo brings the stroke back to the canvas.
+        canvas.undo()
+        #expect(canvas.strokes.count == 1)
+    }
+
     @Test func choosesTheToolFromCode() async throws {
         await Interpreter.run("_canvas = drawing.Canvas(tool='pencil', color=views.Color.BLUE, width=3)")
         let canvas: Canvas = try #require(py.main._canvas)

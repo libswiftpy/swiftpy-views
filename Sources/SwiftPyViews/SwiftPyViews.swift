@@ -29,6 +29,7 @@ public func initialize() {
             Section.self,
             Divider.self,
             Rectangle.self,
+            Shape.self,
             Transform.self,
             Sizing.self,
             SizeContainer.self,
