@@ -39,8 +39,9 @@ struct CanvasView: UIViewRepresentable {
         }
         if coordinator.toolRevision != model.toolRevision {
             coordinator.toolRevision = model.toolRevision
+            coordinator.selectInPicker(model.pkTool)
+            // After the picker, which sets its own item's tool on the canvas.
             view.tool = model.pkTool
-            coordinator.toolPicker.selectedTool = model.pkTool
         }
         coordinator.toolPicker.setVisible(model.toolPicker, forFirstResponder: view)
     }
@@ -59,6 +60,8 @@ struct CanvasView: UIViewRepresentable {
         var toolRevision = -1
         /// Set while a drawing from code is put in, which isn't the user's.
         var isApplying = false
+        /// Set while a tool from code is selected in the picker.
+        private var isSelecting = false
 
         init(model: Canvas) {
             self.model = model
@@ -77,8 +80,29 @@ struct CanvasView: UIViewRepresentable {
             }
         }
 
-        func toolPickerSelectedToolDidChange(_ toolPicker: PKToolPicker) {
-            model.adopt(toolPicker.selectedTool)
+        func toolPickerSelectedToolItemDidChange(_ toolPicker: PKToolPicker) {
+            guard !isSelecting else { return }
+            let item = toolPicker.selectedToolItem
+            if let inking = item as? PKToolPickerInkingItem {
+                model.adopt(inking.inkingTool)
+            } else if let eraser = item as? PKToolPickerEraserItem {
+                model.adopt(eraser.eraserTool)
+            }
+        }
+
+        /// The picker's item of the same kind: an item's color and width
+        /// can't be changed, so those stay the canvas's own.
+        func selectInPicker(_ tool: PKTool) {
+            let item = toolPicker.toolItems.first { item in
+                if let inking = tool as? PKInkingTool {
+                    return (item as? PKToolPickerInkingItem)?.inkingTool.inkType == inking.inkType
+                }
+                return tool is PKEraserTool && item is PKToolPickerEraserItem
+            }
+            guard let item else { return }
+            isSelecting = true
+            toolPicker.selectedToolItemIdentifier = item.identifier
+            isSelecting = false
         }
     }
 }
