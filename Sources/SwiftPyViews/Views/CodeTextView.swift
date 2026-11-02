@@ -35,17 +35,29 @@ struct CodeTextView {
     let text: String
     /// Nil while the tokens belong to text other than ``text``.
     let tokens: [CodeToken]?
+    /// Underlined for what a check found; empty while they're for other text.
+    let marks: [Mark]
     let colorScheme: ColorScheme
     let isEditable: Bool
     let editing: CodeEditing
     /// Kept clear on the leading edge for the line-number gutter.
     let leadingInset: CGFloat
     @Binding var selection: NSRange
+    /// Takes the caret once the view is in a window.
+    let wantsFocus: Bool
     let onTextChange: (String) -> Void
     /// Whether the text view holds the caret, so completion can follow it.
     let onFocusChange: (Bool) -> Void
     let onLineHeight: (CGFloat) -> Void
     let onScrollEdges: (ScrollEdges) -> Void
+    /// How far the code is scrolled sideways, on every change.
+    let onScrollOffset: (CGFloat) -> Void
+
+    struct Mark: Equatable {
+        let range: NSRange
+        let color: Color
+        let style: CodeMarker.Style
+    }
 
     /// Which edges have code beyond them, so the gutter's glass and the
     /// trailing shadow only appear when there is something behind them.
@@ -64,6 +76,7 @@ struct CodeTextView {
         fileprivate var isApplyingUpdate = false
         fileprivate var lineHeight: CGFloat = 0
         fileprivate var scrollEdges = ScrollEdges()
+        fileprivate var scrollOffset: CGFloat = 0
         fileprivate var codeWidth: CGFloat = 0
         /// What the last measurement was of, so the container isn't unbounded
         /// and re-measured on updates that changed neither.
@@ -128,7 +141,9 @@ private extension NSTextLayoutManager {
             let frame = fragment.layoutFragmentFrame
             height = max(height, frame.maxY)
             width = max(width, frame.maxX)
-            if lineHeight == 0 { lineHeight = frame.height }
+            // A line, not the fragment: a lone line's fragment is also the
+            // last, which swallows the empty line after a trailing newline.
+            if lineHeight == 0 { lineHeight = fragment.firstLineHeight }
             return true
         }
 
@@ -136,13 +151,20 @@ private extension NSTextLayoutManager {
     }
 }
 
+private extension NSTextLayoutFragment {
+    var firstLineHeight: CGFloat {
+        textLineFragments.first?.typographicBounds.height ?? layoutFragmentFrame.height
+    }
+}
+
 private extension CodeTextView {
     /// Colors the text in place. Assigning an attributed string instead would
     /// reset the selection, the scroll offset and the undo stack.
-    func applyHighlight(to storage: NSTextStorage) {
+    @discardableResult
+    func applyHighlight(to storage: NSTextStorage) -> Bool {
         // The tokens can be a keystroke behind what is on screen; leaving the
         // stale colors alone reads better than flattening the whole text.
-        guard let tokens else { return }
+        guard let tokens else { return false }
 
         let length = storage.length
         storage.beginEditing()
@@ -153,6 +175,34 @@ private extension CodeTextView {
                 value: CodePalette.xcode.color(for: token.scope, in: colorScheme),
                 range: token.range
             )
+        }
+        storage.endEditing()
+        return true
+    }
+
+    /// Underlines in place, over whatever colors the highlight left; fades
+    /// only colors it just reset, as fading faded ones would darken them.
+    func applyMarks(to storage: NSTextStorage, fading: Bool) {
+        let length = storage.length
+        let whole = NSRange(location: 0, length: length)
+        storage.beginEditing()
+        storage.removeAttribute(.underlineStyle, range: whole)
+        storage.removeAttribute(.underlineColor, range: whole)
+        for mark in marks where NSMaxRange(mark.range) <= length {
+            switch mark.style {
+            case .underline:
+                storage.addAttributes([
+                    .underlineStyle: NSUnderlineStyle.single.rawValue,
+                    .underlineColor: PlatformColor(mark.color),
+                ], range: mark.range)
+            case .faded where fading:
+                storage.enumerateAttribute(.foregroundColor, in: mark.range) { color, range, _ in
+                    guard let color = color as? PlatformColor else { return }
+                    storage.addAttribute(.foregroundColor, value: color.withAlphaComponent(0.45), range: range)
+                }
+            case .faded:
+                break
+            }
         }
         storage.endEditing()
     }
@@ -173,6 +223,12 @@ private extension CodeTextView {
         to coordinator: Coordinator
     ) {
         guard visibleWidth > 0 else { return }
+
+        if abs(offset - coordinator.scrollOffset) >= 0.5 {
+            coordinator.scrollOffset = offset
+            let report = onScrollOffset
+            Task { @MainActor in report(offset) }
+        }
 
         let edges = ScrollEdges(
             leading: offset > 0.5,
@@ -436,7 +492,7 @@ private func drawIndentGuides(
         guard index < lines.count else { return false }
 
         let frame = fragment.layoutFragmentFrame
-        if lineHeight == 0 { lineHeight = frame.height }
+        if lineHeight == 0 { lineHeight = fragment.firstLineHeight }
         let top = frame.minY + inset.height
         let height = min(frame.height, lineHeight)
         guard top < clip.maxY, top + height > clip.minY else { return true }
@@ -477,6 +533,14 @@ final class CodeUITextView: UITextView {
         didSet { if showsIndentGuides != oldValue { setNeedsDisplay() } }
     }
 
+    // A touch that stops a scrolling container only stops it, rather than
+    // also putting the caret in the code.
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        let isScrolling = sequence(first: superview, next: { $0?.superview })
+            .contains { ($0 as? UIScrollView)?.isDecelerating == true }
+        return isScrolling ? nil : super.hitTest(point, with: event)
+    }
+
     override func draw(_ rect: CGRect) {
         super.draw(rect)
         guard showsIndentGuides, let layoutManager = textLayoutManager else { return }
@@ -502,15 +566,48 @@ final class CodeScrollView: UIScrollView {
     /// trailing edge changes what is off screen without scrolling.
     var onLayout: (@MainActor () -> Void)?
 
+    /// Set when the caret is given rather than tapped in: a tap lands where
+    /// the user can see, but a new card may be under the keyboard.
+    var revealsCaretWithKeyboard = false
+
     override init(frame: CGRect) {
         super.init(frame: frame)
         addSubview(textView)
+
+        // The keyboard covers what was visible when the caret arrived.
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(keyboardDidShow),
+            name: UIResponder.keyboardDidShowNotification,
+            object: nil
+        )
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError() }
 
     override func scrollRectToVisible(_ rect: CGRect, animated: Bool) {}
+
+    @objc private func keyboardDidShow() {
+        guard revealsCaretWithKeyboard else { return }
+        revealsCaretWithKeyboard = false
+        if textView.isFirstResponder { revealCaret() }
+    }
+
+    /// Scrolls whatever holds the editor, such as a document of cards, to the
+    /// caret's line. UIKit asks only the nearest scroll view, which is this
+    /// one, and this one only scrolls sideways.
+    func revealCaret() {
+        guard let range = textView.selectedTextRange,
+              let outer = sequence(first: superview, next: { $0?.superview })
+                .lazy.compactMap({ $0 as? UIScrollView }).first
+        else { return }
+
+        let caret = textView.convert(textView.caretRect(for: range.end), to: outer)
+        guard !caret.isNull, caret.maxY.isFinite else { return }
+        // A line of context below, so the caret isn't against the keyboard.
+        outer.scrollRectToVisible(caret.insetBy(dx: 0, dy: -caret.height), animated: true)
+    }
 
     /// Follows the caret, only when it isn't already visible, so that nothing
     /// else moving the view can be fought over.
@@ -613,7 +710,11 @@ extension CodeTextView: UIViewRepresentable {
         coordinator.isApplyingUpdate = true
         defer { coordinator.isApplyingUpdate = false }
 
-        textView.isEditable = isEditable
+        // Only on a change: setting it reloads a focused view's input, which
+        // updates SwiftUI and calls this again, forever.
+        if textView.isEditable != isEditable {
+            textView.isEditable = isEditable
+        }
         textView.showsIndentGuides = editing.indentGuides
         if textView.font != Self.font {
             textView.font = Self.font
@@ -634,7 +735,8 @@ extension CodeTextView: UIViewRepresentable {
             textView.setNeedsDisplay()
         }
         if let storage = textView.textLayoutManager?.codeTextStorage {
-            applyHighlight(to: storage)
+            let highlighted = applyHighlight(to: storage)
+            applyMarks(to: storage, fading: highlighted)
         }
         textView.typingAttributes = Self.textAttributes
 
@@ -648,6 +750,12 @@ extension CodeTextView: UIViewRepresentable {
             || coordinator.measured?.font != Self.font {
             coordinator.measured = (text, leadingInset, Self.font)
             measure(scrollView, coordinator: coordinator)
+        }
+
+        // A hop: a view just made is not in its window yet.
+        if wantsFocus, !textView.isFirstResponder {
+            scrollView.revealsCaretWithKeyboard = true
+            Task { @MainActor in textView.becomeFirstResponder() }
         }
     }
 
@@ -846,7 +954,9 @@ extension CodeTextView: NSViewRepresentable {
         coordinator.isApplyingUpdate = true
         defer { coordinator.isApplyingUpdate = false }
 
-        textView.isEditable = isEditable
+        if textView.isEditable != isEditable {
+            textView.isEditable = isEditable
+        }
         textView.showsIndentGuides = editing.indentGuides
         if textView.font != Self.font {
             textView.font = Self.font
@@ -865,7 +975,8 @@ extension CodeTextView: NSViewRepresentable {
             textView.needsDisplay = true
         }
         if let storage = textView.textLayoutManager?.codeTextStorage {
-            applyHighlight(to: storage)
+            let highlighted = applyHighlight(to: storage)
+            applyMarks(to: storage, fading: highlighted)
         }
         textView.typingAttributes = Self.textAttributes
 
@@ -889,6 +1000,11 @@ extension CodeTextView: NSViewRepresentable {
                 contentWidth: coordinator.codeWidth,
                 to: coordinator
             )
+        }
+
+        // A hop: a view just made is not in its window yet.
+        if wantsFocus, textView.window?.firstResponder !== textView {
+            Task { @MainActor in textView.window?.makeFirstResponder(textView) }
         }
     }
 

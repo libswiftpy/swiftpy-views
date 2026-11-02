@@ -65,15 +65,21 @@ public struct MarkdownContent: View {
     @Environment(\.markdownSourceFormat) private var markdownSourceFormat
 
     private let model: Markdown
+    // Passed in rather than through the environment, which can't compare a
+    // closure and would invalidate every reader on any environment write.
+    private let linesTapAction: (@MainActor (Range<Int>) -> Void)?
 
-    public init(model: Markdown) {
+    /// - Parameter onLinesTap: Reports the zero-based lines of `Markdown.text`
+    ///   holding the tapped block. Code blocks, quotes and tables don't report.
+    public init(model: Markdown, onLinesTap: (@MainActor (Range<Int>) -> Void)? = nil) {
         self.model = model
+        self.linesTapAction = onLinesTap
     }
 
     public var body: some View {
         SwiftUI.VStack(alignment: .leading, spacing: 0) {
             ForEach(segments) { segment in
-                renderedMarkdown(segment.text)
+                renderedMarkdown(segment)
                     .padding(.top, segment.topPadding)
             }
         }
@@ -85,22 +91,30 @@ public struct MarkdownContent: View {
     // element flows with the words around it. `MarkdownView` builds a paragraph
     // out of separate views, which puts every one of them on its own line.
     @ViewBuilder
-    private func renderedMarkdown(_ text: String) -> some View {
-        let source = markdownSourceFormat?.format(text) ?? text
+    private func renderedMarkdown(_ segment: Segment) -> some View {
+        // The format keeps lines, so a tapped block's lines are the segment's.
+        let source = markdownSourceFormat?.format(segment.text) ?? segment.text
 
-        #if os(iOS) || os(macOS)
-        MarkdownText(source)
-        #else
-        // Zeroed so both renderers take their heading spacing from `segments`.
-        MarkdownView(source)
-            .padding(EdgeInsets(), for: .h1, .h2, .h3, .h4, .h5, .h6)
-        #endif
+        if let linesTapAction {
+            MarkdownText(source)
+                .onMarkdownBlockTap { range in
+                    // One-based; a block ending in a newline ends on column 1 of the next line.
+                    let endsOnNextLine = range.upperBound.column == 1
+                        && range.upperBound.line > range.lowerBound.line
+                    let end = range.upperBound.line - (endsOnNextLine ? 1 : 0)
+                    linesTapAction(segment.firstLine + range.lowerBound.line - 1 ..< segment.firstLine + end)
+                }
+        } else {
+            MarkdownText(source)
+        }
     }
 
     private struct Segment: Identifiable {
         let id: Int
         let text: String
         let topPadding: CGFloat
+        /// Zero-based, in `model.text`.
+        let firstLine: Int
     }
 
     /// The markdown cut into a piece per heading, so each heading can be given
@@ -111,6 +125,7 @@ public struct MarkdownContent: View {
         var lines = [Substring]()
         var topPadding: CGFloat = 0
         var isInFence = false
+        var lineCount = 0
 
         func endSegment() {
             guard !lines.isEmpty else { return }
@@ -120,7 +135,8 @@ public struct MarkdownContent: View {
                     id: segments.count,
                     text: lines.joined(separator: "\n"),
                     // Nothing sits above the first piece to separate it from.
-                    topPadding: segments.isEmpty && trimsLeadingHeadingPadding ? 0 : topPadding
+                    topPadding: segments.isEmpty && trimsLeadingHeadingPadding ? 0 : topPadding,
+                    firstLine: lineCount - lines.count
                 )
             )
             lines = []
@@ -138,6 +154,7 @@ public struct MarkdownContent: View {
             }
 
             lines.append(line)
+            lineCount += 1
         }
         endSegment()
 
@@ -198,7 +215,7 @@ public struct MarkdownContent: View {
             MarkdownContent(model: markdown)
                 .environment(\.trimsLeadingHeadingPadding, true)
 
-            Divider()
+            SwiftUI.Divider()
 
             MarkdownContent(model: markdown)
                 .environment(\.trimsLeadingHeadingPadding, false)

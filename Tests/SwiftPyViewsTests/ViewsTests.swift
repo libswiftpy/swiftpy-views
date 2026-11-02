@@ -1,0 +1,246 @@
+//
+//  ViewsTests.swift
+//  swiftpy-views
+//
+
+import SwiftUI
+import Testing
+import SwiftPy
+@testable import SwiftPyViews
+
+@MainActor
+@Suite(.serialized)
+struct ViewsTests {
+    init() async {
+        SwiftPyViews.initialize()
+        await Interpreter.run("from views import *")
+    }
+
+    @Test func containersTakeTheirViewsAndKeywords() async throws {
+        await Interpreter.run("""
+        _stack = VStack("a", Text("b"), alignment="leading", spacing=4)
+        _row = HStack(Text("c"))
+        _section = Section("d", header="Items", footer=Text("Note"))
+        """)
+        let stack: SwiftPyViews.VStack = try #require(py.main._stack)
+        #expect(stack.content.objects.count == 2)
+        #expect(stack.alignment == "leading")
+        #expect(stack.spacing == 4)
+        let row: SwiftPyViews.HStack = try #require(py.main._row)
+        #expect(row.spacing == nil)
+        let section: SwiftPyViews.Section = try #require(py.main._section)
+        #expect(Interpreter.evaluate("_section.header") == "Items")
+        #expect(Interpreter.evaluate("isinstance(_section.footer, Text)") == true)
+        #expect(section.content.objects.count == 1)
+        #expect(Interpreter.evaluate("type(_stack).__module__") == "views")
+        #expect(Interpreter.evaluate("isinstance(Form(_section), View)") == true)
+    }
+
+    @Test func contentChangesLikeAList() async throws {
+        await Interpreter.run("""
+        _stack = VStack("a", "b")
+        _content = _stack.content
+        _content.append("c")
+        _content.insert(0, "start")
+        _content[1] = "A"
+        del _content[-1]
+        _content.remove("b")
+        _items = [item for item in _content]
+        try:
+            _content[5]
+            _out_of_range = False
+        except IndexError:
+            _out_of_range = True
+        try:
+            _content.remove("missing")
+            _missing = False
+        except ValueError:
+            _missing = True
+        """)
+        #expect(Interpreter.evaluate("_items") == ["start", "A"])
+        #expect(Interpreter.evaluate("len(_content)") == 2)
+        #expect(Interpreter.evaluate("_out_of_range") == true)
+        #expect(Interpreter.evaluate("_missing") == true)
+
+        #expect(Interpreter.evaluate("isinstance(_content, Group)") == true)
+        await Interpreter.run("_content.clear()")
+        let stack: SwiftPyViews.VStack = try #require(py.main._stack)
+        #expect(stack.content.objects.isEmpty)
+    }
+
+    @Test func aGroupIsTheListItHolds() async throws {
+        await Interpreter.run("""
+        _group = Group("a")
+        _stack = VStack(_group, "b")
+        _group.append("c")
+        """)
+        let group: SwiftPyViews.Group = try #require(py.main._group)
+        #expect(group.objects.count == 2)
+        #expect(Interpreter.evaluate("len(_stack.content)") == 2)
+    }
+
+    @Test func removingAViewKeepsTheOthersIdentity() async throws {
+        await Interpreter.run("""
+        _a, _b = Text("a"), Text("b")
+        _stack = VStack(_a, _b, "same", "same")
+        """)
+        let stack: SwiftPyViews.VStack = try #require(py.main._stack)
+        let before = stack.content.identified.map(\.id)
+        #expect(Set(before).count == 4)
+
+        await Interpreter.run("del _stack.content[0]")
+        #expect(stack.content.identified.map(\.id) == Array(before.dropFirst()))
+    }
+
+    @Test func modifiersWrapTheViewTheyAreCalledOn() async throws {
+        await Interpreter.run("""
+        class _Card(View):
+            def body(self):
+                return Text("card")
+
+        _text = Text("a")
+        _modified = (_text.padding(8, "horizontal").font("headline").monospaced()
+                     .bold().italic().foreground("#FF000080").background("blue")
+                     .tint("accent").control_size("small").disabled().align("leading")
+                     .on_appear(lambda: None).toolbar("Done"))
+        _card = _Card().padding()
+        """)
+        let modified: ModifiedView = try #require(py.main._modified)
+        let card: ModifiedView = try #require(py.main._card)
+        #expect(Interpreter.evaluate("isinstance(_modified, View)") == true)
+        _ = modified.body()
+        _ = card.body()
+    }
+
+    @Test(arguments: [
+        "Text('a').foreground('nope')",
+        "Text('a').background('#12')",
+        "Text('a').font('huge')",
+        "Text('a').padding(edges='inside')",
+        "Text('a').control_size('huge')",
+        "Text('a').button_style('fancy')",
+    ])
+    func unknownStyleNamesRaise(_ expression: String) async {
+        await Interpreter.run("""
+        try:
+            \(expression)
+            _raised = False
+        except ValueError:
+            _raised = True
+        """)
+        #expect(Interpreter.evaluate("_raised") == true)
+    }
+
+    @Test func optionsTakeTheirEnums() async throws {
+        await Interpreter.run("""
+        _stack = VStack("a", alignment=Alignment.TOP_LEADING)
+        _scroll = ScrollView("b", axis=Axis.HORIZONTAL)
+        _button = Button("Delete", role=ButtonRole.DESTRUCTIVE)
+        _picker = Picker("Size", ["S"], style=PickerStyle.SEGMENTED)
+        _styled = (Text("c").font(Font.LARGE_TITLE).padding(8, Edges.HORIZONTAL)
+                   .foreground(Color.RED).background(Color.ACCENT).tint(Color.MINT)
+                   .align(Alignment.LEADING).control_size(ControlSize.EXTRA_LARGE)
+                   .button_style(ButtonStyle.PLAIN))
+        """)
+        let stack: SwiftPyViews.VStack = try #require(py.main._stack)
+        #expect(stack.alignment == "top-leading")
+        let scroll: SwiftPyViews.ScrollView = try #require(py.main._scroll)
+        #expect(scroll.axis == "horizontal")
+        #expect(Interpreter.evaluate("_scroll.axis is Axis.HORIZONTAL") == true)
+        #expect(Interpreter.evaluate("'axis: AxisValue' in '\\n'.join(__import__('interpreter.help').help._markdown_lines('views.ScrollView'))") == true)
+        #expect(Interpreter.evaluate("_button.role is ButtonRole.DESTRUCTIVE and _picker.style is PickerStyle.SEGMENTED") == true)
+        #expect(Interpreter.evaluate("'role: ButtonRoleValue' in '\\n'.join(__import__('interpreter.help').help._markdown_lines('views.Button'))") == true)
+        await Interpreter.run("_teal = Rectangle(Color.TEAL); _hex = Rectangle('#FF0000')")
+        #expect(Interpreter.evaluate("_teal.color is Color.TEAL and _hex.color == '#FF0000'") == true)
+        #expect(Interpreter.evaluate("'color: ColorValue | None' in '\\n'.join(__import__('interpreter.help').help._markdown_lines('views.Rectangle'))") == true)
+        #expect(Interpreter.evaluate("'style: PickerStyleValue' in '\\n'.join(__import__('interpreter.help').help._markdown_lines('views.Picker'))") == true)
+        let button: SwiftPyViews.Button = try #require(py.main._button)
+        #expect(button.role == "destructive")
+        let picker: SwiftPyViews.Picker = try #require(py.main._picker)
+        #expect(picker.style == "segmented")
+        let styled: ModifiedView = try #require(py.main._styled)
+        _ = styled.body()
+    }
+
+    @Test func animateCallsTheActionAndHandsBackItsResult() async {
+        await Interpreter.run("""
+        _stack = VStack("a")
+        _result = animate(lambda: _stack.content.append("b") or len(_stack.content))
+        try:
+            animate(lambda: 1 / 0)
+            _raised = False
+        except ZeroDivisionError:
+            _raised = True
+        """)
+        #expect(Interpreter.evaluate("_result") == 2)
+        #expect(Interpreter.evaluate("_raised") == true)
+        #expect(Interpreter.evaluate("animate.__module__") == "views")
+    }
+
+    @Test func rectangleRoundsItsCornersOrFollowsThem() async throws {
+        await Interpreter.run("""
+        _following = Rectangle()
+        _square = Rectangle(Color.TEAL, corner_radius=0)
+        _behind = Text("a").background(Rectangle("#FF0000", 12))
+        try:
+            Rectangle("nope")
+            _raised = False
+        except ValueError:
+            _raised = True
+        """)
+        let following: SwiftPyViews.Rectangle = try #require(py.main._following)
+        #expect(following.color == nil)
+        #expect(following.cornerRadius == nil)
+        let square: SwiftPyViews.Rectangle = try #require(py.main._square)
+        #expect(square.color == "teal")
+        #expect(square.cornerRadius == 0)
+        #expect(Interpreter.evaluate("_raised") == true)
+        _ = following.body()
+        _ = square.body()
+        let behind: ModifiedView = try #require(py.main._behind)
+        _ = behind.body()
+    }
+
+    @Test func buttonKeepsItsRole() async throws {
+        await Interpreter.run("_button = Button('Delete', role='destructive')")
+        let button: SwiftPyViews.Button = try #require(py.main._button)
+        #expect(button.role == "destructive")
+    }
+
+    @Test func aButtonSaysWhileItsHeld() async throws {
+        await Interpreter.run("_held = Button('Left')")
+        let button: SwiftPyViews.Button = try #require(py.main._held)
+        #expect(Interpreter.evaluate("_held.is_pressed") == false)
+
+        button.pressed = true
+        #expect(Interpreter.evaluate("_held.is_pressed") == true)
+
+        // Read-only: what the finger does, not what Python says.
+        await Interpreter.run("""
+        try:
+            _held.is_pressed = False
+            _held_set = True
+        except AttributeError:
+            _held_set = False
+        """)
+        #expect(Interpreter.evaluate("_held_set") == false)
+    }
+
+    @Test func aPanGivesWhatWasDraggedOnce() async throws {
+        await Interpreter.run("_pan = Pan(Rectangle(Color.TEAL))")
+        let pan: SwiftPyViews.Pan = try #require(py.main._pan)
+        #expect(Interpreter.evaluate("_pan.consume_delta() == (0, 0)") == true)
+        #expect(Interpreter.evaluate("_pan.is_panning") == false)
+
+        pan.pending = CGSize(width: 12, height: -3)
+        await Interpreter.run("""
+        _delta = _pan.consume_delta()
+        _dx, _dy = _delta
+        """)
+        #expect(Interpreter.evaluate("type(_delta).__name__") == "Vector2")
+        #expect(Interpreter.evaluate("_delta.x") == 12.0)
+        #expect(Interpreter.evaluate("_dy") == -3.0)
+        // Consumed: the next call starts from nothing.
+        #expect(Interpreter.evaluate("_pan.consume_delta() == (0, 0)") == true)
+    }
+}

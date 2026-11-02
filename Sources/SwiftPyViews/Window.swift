@@ -11,7 +11,7 @@ import SwiftUI
 import UIKit
 #endif
 
-/// A window that presents the views added to it, or displayed inside its `with` block.
+/// A window that presents the views added to it.
 @MainActor
 @Observable
 @Scriptable
@@ -90,25 +90,6 @@ class Window: Identifiable {
         destinations.append(Destination(view: object, title: title))
     }
 
-    /// Collects the views displayed in a `with` block instead of the console.
-    ///
-    /// A view on a line of its own is what the block displays:
-    ///
-    /// ```python
-    /// with Window("Report"):
-    ///     Markdown("# Hello")
-    /// ```
-    func __enter__() -> Window {
-        ViewContext.begin(self)
-        return self
-    }
-
-    /// Presents the window with everything its `with` block displayed.
-    func __exit__(_ exceptionType: PyObject, _ exception: PyObject, _ traceback: PyObject) {
-        ViewContext.end(self)
-        show()
-    }
-
     /// Pushes a view onto the window's navigation stack.
     ///
     /// view: A view, or a string to show as text.
@@ -164,41 +145,16 @@ class Window: Identifiable {
         }
         #endif
 
-        EnvironmentValues().dismissWindow(value: id)
+        // Only show() on an app with several windows opens one.
+        let environment = EnvironmentValues()
+        if environment.supportsMultipleWindows {
+            environment.dismissWindow(value: id)
+        }
         Window.presentedWindows.remove(id)
     }
 
     internal static var windows = [ID: Window]()
     internal static var presentedWindows = Set<ID>()
-}
-
-/// The windows collecting the views displayed inside their `with` blocks.
-@MainActor
-public enum ViewContext {
-    private static var stack: [(window: Window, executionId: UInt64)] = []
-
-    /// Appends the view to the innermost open window, or reports that no window
-    /// took it and it belongs wherever the host puts a displayed view.
-    public static func capture(_ view: AnyView) -> Bool {
-        // TODO(tech-debt): with-no-finally
-        while let last = stack.last, last.executionId != Interpreter.currentExecutionId {
-            stack.removeLast()
-        }
-
-        guard let window = stack.last?.window else { return false }
-        window.collect(view)
-        return true
-    }
-
-    static func begin(_ window: Window) {
-        stack.append((window, Interpreter.currentExecutionId))
-    }
-
-    /// Ends the window's collection, and any block still open inside it.
-    static func end(_ window: Window) {
-        guard let index = stack.lastIndex(where: { $0.window === window }) else { return }
-        stack.removeSubrange(index...)
-    }
 }
 
 /// A window's content, with the title and close button its presentation adds.
@@ -227,12 +183,22 @@ struct WindowContent: View {
             #if canImport(UIKit)
             .toolbar {
                 if window.closable && window.isPresentedModally {
-                    SwiftUI.Button(role: .close) {
-                        window.close()
+                    // Pinned, it stays the trailing-most beside a view's own items.
+                    if #available(iOS 27, visionOS 27, *) {
+                        ToolbarItem(placement: .topBarPinnedTrailing) { closeButton }
+                    } else {
+                        ToolbarItem { closeButton }
                     }
                 }
             }
             #endif
+        }
+        .environment(\.isInWindow, true)
+    }
+
+    private var closeButton: some View {
+        SwiftUI.Button(role: .close) {
+            window.close()
         }
     }
 }
@@ -267,4 +233,9 @@ private struct WindowContentContainer<Content: View>: View {
             .scrollBounceBehavior(.basedOnSize)
         }
     }
+}
+
+public extension EnvironmentValues {
+    /// A window shows views as an app would, rather than in a notebook's cards.
+    @Entry var isInWindow = false
 }

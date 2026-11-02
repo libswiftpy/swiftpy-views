@@ -12,6 +12,22 @@ import AppKit
 import UIKit
 #endif
 
+/// Completes from an editor's whole source, where the interpreter only sees
+/// the fragment before the caret.
+@MainActor
+public protocol CompletionProvider: AnyObject {
+    /// Suggestions for the identifier ending at `cursor`, each replacing it
+    /// whole, as ``CodeCompletion/apply(_:to:at:indent:)`` does.
+    func completions(in editor: CodeEditor, source: String, cursor: String.Index) async -> [CodeSuggestion]
+    func signatureHelp(in editor: CodeEditor, source: String, cursor: String.Index) async -> CodeSignatureHelp?
+}
+
+public extension CompletionProvider {
+    func signatureHelp(in editor: CodeEditor, source: String, cursor: String.Index) async -> CodeSignatureHelp? {
+        nil
+    }
+}
+
 /// The suggestions for whichever editor holds the caret.
 ///
 /// Shared through the environment because the editor being completed and the
@@ -20,27 +36,69 @@ import UIKit
 @MainActor
 @Observable
 public final class CodeCompleter {
-    public private(set) var completions: [String] = []
+    public private(set) var completions: [CodeSuggestion] = []
+    public private(set) var signature: CodeSignatureHelp?
+    @ObservationIgnored private var signatureRequest: Task<Void, Never>?
     /// An editor holds the caret, which is what puts the input field into its
     /// completing state.
     public private(set) var isEditing = false
+    /// The caret is in Markdown, which has nothing to complete.
+    public private(set) var isEditingMarkdown = false
+
+    /// The Markdown editor holding the caret.
+    public var markdownEditor: MarkdownEditor? {
+        // `isEditingMarkdown` first: it is what observation sees change.
+        isEditingMarkdown ? focusedMarkdown : nil
+    }
+
+    /// The editor holding the caret has nothing but whitespace.
+    public var isEditingBlank: Bool {
+        guard isEditing else { return false }
+        let text = markdownEditor?.text ?? focused?.source
+        return text?.allSatisfy(\.isWhitespace) == true
+    }
 
     /// The editor driving the suggestions.
     @ObservationIgnored private weak var focused: CodeEditor?
+    @ObservationIgnored private weak var focusedMarkdown: MarkdownEditor?
     /// Where an applied suggestion goes. Kept past ``resign(_:)`` — see there.
     @ObservationIgnored private weak var target: CodeEditor?
     @ObservationIgnored private var request: Task<Void, Never>?
     @ObservationIgnored private var pending: UUID?
     @ObservationIgnored private var events: Task<Void, Never>?
+    /// Asked instead of the interpreter when set.
+    @ObservationIgnored public var provider: (any CompletionProvider)?
 
     public init() {}
 
     /// The editor took the caret, so the suggestions are now its own.
     internal func focus(_ editor: CodeEditor) {
+        clearSignature()
         focused = editor
+        focusedMarkdown = nil
+        isEditingMarkdown = false
         target = editor
         isEditing = true
         completions = []
+    }
+
+    internal func focus(_ editor: MarkdownEditor) {
+        clearSignature()
+        focused = nil
+        // Nothing may be applied to the code editor left behind.
+        target = nil
+        focusedMarkdown = editor
+        isEditingMarkdown = true
+        isEditing = true
+        completions = []
+        request?.cancel()
+    }
+
+    internal func resign(_ editor: MarkdownEditor) {
+        guard focusedMarkdown === editor else { return }
+        focusedMarkdown = nil
+        isEditingMarkdown = false
+        isEditing = false
     }
 
     /// The editor gave the caret up. `target` deliberately stays: on macOS,
@@ -48,6 +106,7 @@ public final class CodeCompleter {
     /// button's action runs, and dropping it here would apply to nothing.
     internal func resign(_ editor: CodeEditor) {
         guard focused === editor else { return }
+        clearSignature()
         focused = nil
         isEditing = false
         completions = []
@@ -61,6 +120,7 @@ public final class CodeCompleter {
         guard focused === editor else { return }
 
         request?.cancel()
+        updateSignature(editor, source: source, cursor: cursor)
 
         guard let cursor else {
             completions = []
@@ -68,12 +128,18 @@ public final class CodeCompleter {
         }
 
         let query = CodeCompletion.query(in: source, at: cursor)
-        request = Task { [weak self] in
+        request = Task { [weak self, weak editor] in
             // A keystroke is not a question yet. Without this the editor asks
             // once per key, which is a round trip each over a remote host.
             try? await Task.sleep(for: .milliseconds(100))
             guard !Task.isCancelled else { return }
-            await self?.send(query)
+            if let provider = self?.provider, let editor {
+                let suggestions = await provider.completions(in: editor, source: source, cursor: cursor)
+                guard !Task.isCancelled else { return }
+                self?.completions = suggestions
+            } else {
+                await self?.send(query)
+            }
         }
     }
 
@@ -102,11 +168,34 @@ public final class CodeCompleter {
 
     /// The interpreter connection changed; nothing in flight belongs to it.
     public func reset() {
+        clearSignature()
         request?.cancel()
         events?.cancel()
         events = nil
         pending = nil
         completions = []
+    }
+
+    private func clearSignature() {
+        signatureRequest?.cancel()
+        signatureRequest = nil
+        signature = nil
+    }
+
+    private func updateSignature(_ editor: CodeEditor, source: String, cursor: String.Index?) {
+        signatureRequest?.cancel()
+        guard let cursor, let provider else {
+            clearSignature()
+            return
+        }
+        signatureRequest = Task { [weak self, weak editor] in
+            try? await Task.sleep(for: .milliseconds(100))
+            guard !Task.isCancelled, let editor else { return }
+            let signature = await provider.signatureHelp(in: editor, source: source, cursor: cursor)
+            guard !Task.isCancelled, self?.focused === editor,
+                  editor.source == source, editor.cursor == cursor else { return }
+            self?.signature = signature
+        }
     }
 
     private func send(_ query: String) async {
@@ -129,13 +218,13 @@ public final class CodeCompleter {
             for await event in await Interpreter.connection.events {
                 guard case let .completions(suggestions, token) = event.payload
                 else { continue }
-                await self?.receive(suggestions, for: token)
+                self?.receive(suggestions, for: token)
             }
         }
     }
 
     private func receive(_ suggestions: [String], for token: UUID) {
         guard token == pending else { return }
-        completions = suggestions
+        completions = suggestions.map { CodeSuggestion(text: $0) }
     }
 }

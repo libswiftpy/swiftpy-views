@@ -15,10 +15,17 @@ let package = Package(
             name: "SyntaxHighlight",
             targets: ["SyntaxHighlight"]
         ),
+        .library(
+            name: "SwiftPyAudio",
+            targets: ["SwiftPyAudio"]
+        ),
+        .library(
+            name: "SwiftPyDrawing",
+            targets: ["SwiftPyDrawing"]
+        ),
     ],
     dependencies: [
         .package(url: "https://github.com/felfoldy/SwiftPy", from: "0.30.0"),
-        .package(url: "https://github.com/appstefan/HighlightSwift.git", from: "1.1.0"),
         // Remote fork until the SVG sizing fixes land upstream. See the tech-debt skill.
         .package(url: "https://github.com/felfoldy/MarkdownView", branch: "fix/scalable-svg", traits: []),
     ],
@@ -28,14 +35,23 @@ let package = Package(
             dependencies: [
                 "SwiftPy",
                 "SyntaxHighlight",
-                "HighlightSwift",
                 .product(name: "MarkdownView", package: "MarkdownView"),
             ],
-            resources: [.copy("Resources/views.py")],
+            resources: [.copy("Resources/views.py"), .copy("Resources/widgets.py")],
         ),
         .target(
             name: "SyntaxHighlight",
             resources: [.process("Resources")],
+        ),
+        .target(
+            name: "SwiftPyAudio",
+            dependencies: ["SwiftPy"],
+            resources: [.copy("Resources/audio.py")],
+        ),
+        .target(
+            name: "SwiftPyDrawing",
+            dependencies: ["SwiftPy", "SwiftPyViews"],
+            resources: [.copy("Resources/drawing.py")],
         ),
         .testTarget(
             name: "SyntaxHighlightTests",
@@ -44,6 +60,14 @@ let package = Package(
         .testTarget(
             name: "SwiftPyViewsTests",
             dependencies: ["SwiftPyViews"],
+        ),
+        .testTarget(
+            name: "SwiftPyAudioTests",
+            dependencies: ["SwiftPyAudio"],
+        ),
+        .testTarget(
+            name: "SwiftPyDrawingTests",
+            dependencies: ["SwiftPyDrawing"],
         ),
     ]
 )

@@ -44,7 +44,7 @@ private struct InspectorModifierContent: View {
                 }
             }
             .inspectorOrSheet(isPresented: $model.isPresented) {
-                Form {
+                SwiftUI.Form {
                     model.inspector.asView
                 }
             }

@@ -15,10 +15,53 @@ public func initialize() {
             Markdown.self,
             Window.self,
             CodeEditor.self,
+            MarkdownEditor.self,
+            Slider.self,
+            ModifiedView.self,
+            Text.self,
+            Image.self,
+            VStack.self,
+            HStack.self,
+            ZStack.self,
+            Group.self,
+            ScrollView.self,
+            Form.self,
+            Section.self,
+            Divider.self,
+            Rectangle.self,
+            Shape.self,
+            Transform.self,
+            Sizing.self,
+            SizeContainer.self,
+            Button.self,
+            TextField.self,
+            Toggle.self,
+            Stepper.self,
+            Picker.self,
+            Progress.self,
+            Pan.self,
         )
+
+        module.def(
+            "animate(action: Callable[[], Any]) -> Any",
+            docstring: "Calls `action` and animates the changes it makes to views. An `async def` is only called: animate what it changes after an `await` from inside it."
+        ) { argc, argv in
+            PyBind.function(argc, argv) { (action: PyObject) in
+                try withAnimation { try action() }
+            }
+        }
     }
+    ViewModifiers.install()
 
     PyBind.module("views", in: .module)
+
+    #if DEBUG
+    // Only to try out for now; not in release builds.
+    PyBind.module("_widgets", docs: "Native widgets.") { module in
+        module.classes(Widget.self)
+    }
+    PyBind.module("widgets", in: .module)
+    #endif
 }
 
 @MainActor
