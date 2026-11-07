@@ -37,7 +37,7 @@ let package = Package(
                 "SyntaxHighlight",
                 .product(name: "MarkdownView", package: "MarkdownView"),
             ],
-            resources: [.copy("Resources/views.py"), .copy("Resources/widgets.py")],
+            resources: [.copy("Resources/views.py"), .copy("Resources/widgets.py"), .copy("Resources/scenes.py")],
         ),
         .target(
             name: "SyntaxHighlight",
