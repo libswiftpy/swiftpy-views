@@ -6,13 +6,15 @@
 import RealityKit
 import Testing
 @testable import SwiftPy
-@testable import SwiftPyViews
+@testable import Scenes
+import SwiftPyViews
 
 @MainActor
 @Suite(.serialized)
 struct ScenesTests {
     init() async {
         SwiftPyViews.initialize()
+        Scenes.initialize()
         await Interpreter.run("""
         from scenes import *
         import scenes
@@ -150,8 +152,60 @@ struct ScenesTests {
         #expect(evaluate("len(_scene.entities)") == "0")
     }
 
+    @Test func fitContentScalesNowOnceShown() async throws {
+        await Interpreter.run("""
+        _fitted = Scene()
+        _fitted.add(Entity.box(Vector3(1, 1, 1)))
+        """)
+        let fitted = try #require(Interpreter.evaluate("_fitted") as SceneView?)
+
+        // Not shown yet.
+        #expect(evaluate("_fitted.fit_content()") == "None")
+        #expect(fitted.root.scale.x == 1)
+
+        fitted.availableSize = 1
+        #expect(fitted.root.scale.x == 1)
+        await Interpreter.run("_fitted.fit_content()")
+        #expect(abs(fitted.root.scale.x - 0.577) < 0.01)
+
+        // From the content's own size, so a second call changes nothing.
+        await Interpreter.run("_fitted.fit_content()")
+        #expect(abs(fitted.root.scale.x - 0.577) < 0.01)
+    }
+
+    @Test func contentScalesDownToFit() {
+        #expect(SceneView.fitScale(radius: 1, available: 1) == 0.5)
+        #expect(SceneView.fitScale(radius: 0.1, available: 1) == 1)
+        #expect(SceneView.fitScale(radius: 0, available: 1) == 1)
+        #expect(SceneView.fitScale(radius: 1, available: 0) == 1)
+    }
+
+    @Test func aSceneChoosesItsCameraControl() async {
+        await Interpreter.run("""
+        _orbiting = Scene()
+        _panning = Scene(camera_control=CameraControl.PAN)
+        _named = Scene(camera_control="tilt")
+        _fixed = Scene(camera_control=None)
+
+        _changed = Scene()
+        _changed.camera_control = CameraControl.DOLLY
+        _cleared = Scene()
+        _cleared.camera_control = None
+
+        def _set_unknown():
+            Scene().camera_control = "spin"
+        """)
+        #expect(evaluate("_orbiting.camera_control is CameraControl.ORBIT") == "True")
+        #expect(evaluate("_panning.camera_control is CameraControl.PAN") == "True")
+        #expect(evaluate("_named.camera_control is CameraControl.TILT") == "True")
+        #expect(evaluate("_fixed.camera_control") == "None")
+        #expect(evaluate("_changed.camera_control is CameraControl.DOLLY") == "True")
+        #expect(evaluate("_cleared.camera_control") == "None")
+        #expect(evaluate("_raised(_set_unknown)") == "TypeError")
+    }
+
     @Test func badArgumentsAreRefused() {
-        #expect(evaluate("_raised(lambda: Scene(camera='spin'))") == "ValueError")
+        #expect(evaluate("_raised(lambda: Scene(camera_control='spin'))") == "TypeError")
         #expect(evaluate("_raised(lambda: Entity.box(Vector3.one(), color='nope'))") == "ValueError")
         #expect(evaluate("_raised(lambda: Entity().components.set(3))") == "TypeError")
     }
@@ -235,7 +289,7 @@ struct ScenesTests {
         """)
         let context = SceneContext(deltaTime: 0, sceneID: 4) { _ in [] }
         PythonSystems.update(context)
-        removeSceneSystems()
+        Scenes.removeSystems()
         PythonSystems.update(context)
         #expect(evaluate("len(_kept)") == "1")
     }

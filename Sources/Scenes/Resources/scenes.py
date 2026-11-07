@@ -24,11 +24,12 @@ scene.add(cube)
 scene
 ```"""
 __all__ = [
-    "Component", "Components", "Entity", "Quaternion", "Scene", "SceneContext",
+    "CameraControl", "CameraControlValue", "Component", "Components", "Entity", "Quaternion", "Scene", "SceneContext",
     "System", "Transform", "Vector2", "Vector3", "Vector4",
 ]
 
 from collections.abc import Iterator
+from enum import StrEnum
 from typing import TypeVar
 
 import _scenes
@@ -38,6 +39,17 @@ from _scenes import Entity, Quaternion, Scene, SceneContext, Transform, Vector2,
 for _type in (Entity, Quaternion, Scene, SceneContext, Transform, Vector2, Vector3, Vector4):
     _type.__module__ = __name__
 del _type
+
+
+class CameraControl(StrEnum):
+    """How a scene's camera follows gestures."""
+    ORBIT = "orbit"
+    PAN = "pan"
+    TILT = "tilt"
+    DOLLY = "dolly"
+
+
+type CameraControlValue = CameraControl | str
 
 
 def _declare(cls: type, declaration: str) -> None:

@@ -23,6 +23,10 @@ let package = Package(
             name: "SwiftPyDrawing",
             targets: ["SwiftPyDrawing"]
         ),
+        .library(
+            name: "Scenes",
+            targets: ["Scenes"]
+        ),
     ],
     dependencies: [
         .package(url: "https://github.com/felfoldy/SwiftPy", from: "0.30.0"),
@@ -37,7 +41,7 @@ let package = Package(
                 "SyntaxHighlight",
                 .product(name: "MarkdownView", package: "MarkdownView"),
             ],
-            resources: [.copy("Resources/views.py"), .copy("Resources/widgets.py"), .copy("Resources/scenes.py")],
+            resources: [.copy("Resources/views.py"), .copy("Resources/widgets.py")],
         ),
         .target(
             name: "SyntaxHighlight",
@@ -52,6 +56,11 @@ let package = Package(
             name: "SwiftPyDrawing",
             dependencies: ["SwiftPy", "SwiftPyViews"],
             resources: [.copy("Resources/drawing.py")],
+        ),
+        .target(
+            name: "Scenes",
+            dependencies: ["SwiftPy", "SwiftPyViews"],
+            resources: [.copy("Resources/scenes.py")],
         ),
         .testTarget(
             name: "SyntaxHighlightTests",
@@ -68,6 +77,10 @@ let package = Package(
         .testTarget(
             name: "SwiftPyDrawingTests",
             dependencies: ["SwiftPyDrawing"],
+        ),
+        .testTarget(
+            name: "ScenesTests",
+            dependencies: ["Scenes"],
         ),
     ]
 )

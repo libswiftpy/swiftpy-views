@@ -61,32 +61,6 @@ public func initialize() {
         module.classes(Widget.self)
     }
     PyBind.module("widgets", in: .module)
-
-    PyBind.module("_scenes", docs: "Native scenes.") { module in
-        module.classes(
-            Vector2.self,
-            Vector3.self,
-            Vector4.self,
-            Quaternion.self,
-            EntityTransform.self,
-            SceneEntity.self,
-            SceneContext.self,
-            SceneView.self,
-        )
-
-        module.def("_register_system(name: str, step: Callable) -> None") { argc, argv in
-            PyBind.function(argc, argv) { (name: String, step: Callback) -> Void in
-                PythonSystems.register(name, step: step)
-            }
-        }
-
-        module.def("_unregister_system(name: str) -> None") { argc, argv in
-            PyBind.function(argc, argv) { (name: String) -> Void in
-                PythonSystems.unregister(name)
-            }
-        }
-    }
-    PyBind.module("scenes", in: .module)
     #endif
 }
 

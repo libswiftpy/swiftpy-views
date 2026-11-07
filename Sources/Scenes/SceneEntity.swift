@@ -6,6 +6,7 @@
 import Foundation
 import RealityKit
 import SwiftPy
+import SwiftPyViews
 import SwiftUI
 
 /// An entity's transform. What it returns is live: changing

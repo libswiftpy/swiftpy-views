@@ -6,6 +6,7 @@
 import Foundation
 import RealityKit
 import SwiftPy
+import SwiftPyViews
 
 /// What a system's `update` gets each frame.
 @Scriptable
@@ -33,13 +34,6 @@ final class SceneContext {
     func _query(_ indices: [Int]) -> [Entity] {
         perform(PythonComponents.query(indices)).map(SceneEntity.wrapper)
     }
-}
-
-/// Forgets every Python system, for an interpreter that starts over: they
-/// live outside `__main__`, and would go on running in the next notebook's scenes.
-@MainActor
-public func removeSceneSystems() {
-    PythonSystems.removeAll()
 }
 
 /// Python's systems. RealityKit can't unregister a system and makes one per
