@@ -35,6 +35,10 @@ class Window: Identifiable {
     var destinations: [Destination] = []
 
     internal let id: ID
+    /// Opened by a script, rather than by the host, as a docs page is.
+    internal var isScript = true
+    /// The notebook it was opened from.
+    internal let owner: WindowOwner?
 
     struct Destination: Hashable {
         let id = UUID()
@@ -68,6 +72,7 @@ class Window: Identifiable {
         self.closable = closable
         self.sheet = sheet
         id = ID(id: UUID().uuidString)
+        owner = WindowActions.shared.owner
         Window.windows[id] = self
     }
 
@@ -168,7 +173,11 @@ class Window: Identifiable {
     }
 
     internal static var windows = [ID: Window]()
-    internal static var presentedWindows = Set<ID>()
+    // Observable there, for a host to show what's open.
+    internal static var presentedWindows: Set<ID> {
+        get { WindowActions.shared.presented }
+        set { WindowActions.shared.presented = newValue }
+    }
 }
 
 /// A window's content, with the title and close button its presentation adds.
@@ -258,10 +267,19 @@ public extension EnvironmentValues {
     @Entry var isInWindow = false
 }
 
-/// Home, the app's main window: one value, so opening it again brings it forward.
-public enum HomeID: String, Codable, Hashable, Sendable {
-    case main
+/// A notebook, as what its windows and callbacks belong to.
+public struct WindowOwner: Hashable, Sendable {
+    public let id: String
+    public let title: String
+
+    public init(id: String, title: String) {
+        self.id = id
+        self.title = title
+    }
 }
+
+/// The id of Home, the app's main window group, which Python windows make way for.
+public let homeWindowID = "home"
 
 /// The window actions of the scenes on screen, for code outside a view. An action
 /// made from a fresh environment opens nothing on iOS.
@@ -272,6 +290,27 @@ public final class WindowActions {
 
     private var scenes: [UUID: (open: OpenWindowAction, dismiss: DismissWindowAction)] = [:]
     private var homes = Set<UUID>()
+    var presented = Set<Window.ID>()
+    /// The notebook running now, which windows and callbacks made now belong to.
+    public var currentOwner: (@MainActor () -> WindowOwner?)?
+    public var owner: WindowOwner? { currentOwner?() }
+
+    /// Windows scripts opened that are shown, as windows of their own or as modals.
+    public var openPythonWindows: Int { scriptWindows.count }
+
+    /// The notebooks with a script's window shown, each once.
+    public var windowOwners: [WindowOwner] {
+        var seen = Set<String>()
+        return scriptWindows.compactMap(\.owner).filter { seen.insert($0.id).inserted }
+    }
+
+    public func openPythonWindows(of owner: String) -> Int {
+        scriptWindows.filter { $0.owner?.id == owner }.count
+    }
+
+    private var scriptWindows: [Window] {
+        presented.compactMap { Window.windows[$0] }.filter(\.isScript)
+    }
     /// Whether this platform shows several windows, as an iPad and a Mac do.
     public private(set) var supportsMultipleWindows = false
 
@@ -281,13 +320,25 @@ public final class WindowActions {
 
     fileprivate func appear(_ id: UUID, open: OpenWindowAction, dismiss: DismissWindowAction, isHome: Bool, supportsMultipleWindows: Bool) {
         scenes[id] = (open, dismiss)
-        if isHome { homes.insert(id) }
+        if isHome {
+            // A second Home, as iPad's "+" opens: the new one, in front, stays.
+            for other in homes where other != id {
+                scenes[other]?.dismiss()
+            }
+            homes.insert(id)
+        }
         self.supportsMultipleWindows = supportsMultipleWindows
     }
 
     fileprivate func disappear(_ id: UUID) {
         scenes[id] = nil
         homes.remove(id)
+    }
+
+    public func closePythonWindows(of owner: String? = nil) {
+        for window in scriptWindows where owner == nil || window.owner?.id == owner {
+            window.close()
+        }
     }
 }
 

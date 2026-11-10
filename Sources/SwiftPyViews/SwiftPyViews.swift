@@ -83,7 +83,7 @@ private struct StaleWindow: View {
         Color.clear.onAppear {
             #if !os(macOS)
             if !WindowActions.shared.isHomeOpen {
-                openWindow(value: HomeID.main)
+                openWindow(id: homeWindowID)
             }
             #endif
             dismissWindow()
@@ -104,6 +104,7 @@ public struct PythonWindows: Scene {
         content: (PythonWindowNavigator) -> AnyView
     ) {
         let window = Window(title: title, sheet: sheet)
+        window.isScript = false
         let navigator = PythonWindowNavigator(window: window)
         window.collect(content(navigator))
         window.show()

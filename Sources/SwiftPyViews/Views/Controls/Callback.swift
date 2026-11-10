@@ -13,25 +13,52 @@ import SwiftUI
 public final class ViewTasks {
     public static let shared = ViewTasks()
 
-    @ObservationIgnored private var tasks: [UUID: AsyncTask] = [:]
+    @ObservationIgnored private var tasks: [UUID: (task: AsyncTask, owner: String?)] = [:]
     public private(set) var isRunning = false
+    /// Tasks running per owner, a notebook's id.
+    public private(set) var running: [String: Int] = [:]
+    /// The last line of what a view's callback last raised, per owner, until its next tap.
+    public private(set) var failures: [String: String] = [:]
 
     /// Stops every one, as when the time to run in the background is up.
     public func cancelAll() {
-        for task in tasks.values {
-            task.cancel()
+        for entry in tasks.values {
+            entry.task.cancel()
         }
+        failures = [:]
     }
 
-    fileprivate func begin(_ task: AsyncTask) -> UUID {
+    public func cancel(owner: String) {
+        for entry in tasks.values where entry.owner == owner {
+            entry.task.cancel()
+        }
+        failures[owner] = nil
+    }
+
+    public func clearFailure(owner: String) {
+        failures[owner] = nil
+    }
+
+    fileprivate func fail(_ line: String, owner: String?) {
+        guard let owner else { return }
+        failures[owner] = line
+    }
+
+    fileprivate func begin(_ task: AsyncTask, owner: String?) -> UUID {
         let id = UUID()
-        tasks[id] = task
+        tasks[id] = (task, owner)
         isRunning = true
+        if let owner {
+            running[owner, default: 0] += 1
+            failures[owner] = nil
+        }
         return id
     }
 
     fileprivate func end(_ id: UUID) {
-        tasks[id] = nil
+        if let owner = tasks.removeValue(forKey: id)?.owner {
+            running[owner] = (running[owner] ?? 1) > 1 ? running[owner]! - 1 : nil
+        }
         isRunning = !tasks.isEmpty
     }
 }
@@ -43,9 +70,16 @@ public final class ViewTasks {
 public struct Callback: PythonConvertible {
     public let function: PyObject
     public let route: Interpreter.OutputRoute?
+    /// The notebook that set it up, whose work it is.
+    public let owner: String?
 
-    public init(_ function: PyObject, route: Interpreter.OutputRoute? = Interpreter.outputRoute) {
+    public init(
+        _ function: PyObject,
+        route: Interpreter.OutputRoute? = Interpreter.outputRoute,
+        owner: String? = WindowActions.shared.owner?.id
+    ) {
         self.function = function
+        self.owner = owner
         self.route = route
     }
 
@@ -83,7 +117,7 @@ public struct Callback: PythonConvertible {
             // once it's driven, here, where it inherits the route.
             guard Self.isAwaitable(result), let task = try? AsyncTask.from(result) else { return nil }
             // Not `on_appear`'s, which is often a loop that never ends.
-            let id = isUserAction ? ViewTasks.shared.begin(task) : nil
+            let id = isUserAction ? ViewTasks.shared.begin(task, owner: owner) : nil
             return Task { @MainActor in
                 do {
                     _ = try await task.untilCompletes()
@@ -102,6 +136,10 @@ public struct Callback: PythonConvertible {
             return
         }
         var text = (error as? PythonError)?.traceback ?? "\(error)"
+        // Without the colors the traceback is printed in.
+        let plain = text.replacing(/\u{1B}\[[0-9;]*m/, with: "")
+        let lastLine = plain.split(separator: "\n").last { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+        ViewTasks.shared.fail(lastLine.map(String.init) ?? plain, owner: owner)
         if !text.hasSuffix("\n") { text += "\n" }
         if let route {
             route.write(text)
