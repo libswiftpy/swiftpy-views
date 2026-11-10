@@ -8,10 +8,8 @@ import SwiftPyViews
 
 @MainActor
 public enum Scenes {
-    /// Registers `scenes`, in debug builds only for now; `views` must be
-    /// registered first.
+    /// Registers `scenes`; `views` must be registered first.
     public static func initialize() {
-        #if DEBUG
         PyBind.module("_scenes", docs: "Native scenes.") { module in
             module.classes(
                 Vector2.self,
@@ -37,7 +35,6 @@ public enum Scenes {
             }
         }
         PyBind.module("scenes", in: .module)
-        #endif
     }
 
     /// Forgets every Python system, for an interpreter that starts over: they
