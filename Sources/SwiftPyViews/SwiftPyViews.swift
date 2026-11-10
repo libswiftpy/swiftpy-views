@@ -73,6 +73,24 @@ public struct PythonWindowNavigator {
     }
 }
 
+/// A window whose Python `Window` is gone, as one restored from an earlier run:
+/// it makes way for Home.
+private struct StaleWindow: View {
+    @Environment(\.openWindow) private var openWindow
+    @Environment(\.dismissWindow) private var dismissWindow
+
+    var body: some View {
+        Color.clear.onAppear {
+            #if !os(macOS)
+            if !WindowActions.shared.isHomeOpen {
+                openWindow(value: HomeID.main)
+            }
+            #endif
+            dismissWindow()
+        }
+    }
+}
+
 public struct PythonWindows: Scene {
     public init() {
         SwiftPyViews.initialize()
@@ -97,7 +115,13 @@ public struct PythonWindows: Scene {
             .restorationBehavior(.disabled)
             .defaultLaunchBehavior(.suppressed)
             .commandsRemoved()
+        #elseif os(visionOS)
+        // A relaunch starts at Home, without last session's windows.
+        windows
+            .restorationBehavior(.disabled)
+            .defaultLaunchBehavior(.suppressed)
         #else
+        // iOS restores them regardless; `StaleWindow` closes them.
         windows
         #endif
     }
@@ -107,6 +131,9 @@ public struct PythonWindows: Scene {
             if let key,
                let window = Window.windows[key] {
                 WindowContent(window: window)
+                    .windowActions()
+            } else {
+                StaleWindow()
             }
         }
     }

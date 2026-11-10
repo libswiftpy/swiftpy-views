@@ -103,7 +103,17 @@ class Window: Identifiable {
 
     /// Presents the window.
     func show() {
-        #if os(macOS) || os(visionOS)
+        #if os(macOS)
+        let opensWindow = true
+        #else
+        let opensWindow = !sheet
+        #endif
+        if opensWindow, let openWindow = WindowActions.shared.openWindow {
+            openWindow(value: id)
+            Window.presentedWindows.insert(id)
+            return
+        }
+        #if os(macOS)
         let environment = EnvironmentValues()
         if environment.supportsMultipleWindows {
             environment.openWindow(value: id)
@@ -146,9 +156,13 @@ class Window: Identifiable {
         #endif
 
         // Only show() on an app with several windows opens one.
-        let environment = EnvironmentValues()
-        if environment.supportsMultipleWindows {
-            environment.dismissWindow(value: id)
+        if let dismissWindow = WindowActions.shared.dismissWindow {
+            dismissWindow(value: id)
+        } else {
+            let environment = EnvironmentValues()
+            if environment.supportsMultipleWindows {
+                environment.dismissWindow(value: id)
+            }
         }
         Window.presentedWindows.remove(id)
     }
@@ -160,6 +174,8 @@ class Window: Identifiable {
 /// A window's content, with the title and close button its presentation adds.
 struct WindowContent: View {
     @State var window: Window
+
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         @Bindable var window = window
@@ -182,6 +198,14 @@ struct WindowContent: View {
             // A real window gets a close from the OS; a modal has to bring one.
             #if canImport(UIKit)
             .toolbar {
+                // Back to Home, from a window left open once Home was closed.
+                if !window.isPresentedModally && !WindowActions.shared.isHomeOpen {
+                    ToolbarItem(placement: .topBarLeading) {
+                        SwiftUI.Button("Home", systemImage: "house") {
+                            openWindow(value: HomeID.main)
+                        }
+                    }
+                }
                 if window.closable && window.isPresentedModally {
                     // Pinned, it stays the trailing-most beside a view's own items.
                     if #available(iOS 27, visionOS 27, *) {
@@ -194,6 +218,10 @@ struct WindowContent: View {
             #endif
         }
         .environment(\.isInWindow, true)
+        // The system closed it, as a window of its own can always be.
+        .onDisappear {
+            Window.presentedWindows.remove(window.id)
+        }
     }
 
     private var closeButton: some View {
@@ -238,4 +266,64 @@ private struct WindowContentContainer<Content: View>: View {
 public extension EnvironmentValues {
     /// A window shows views as an app would, rather than in a notebook's cards.
     @Entry var isInWindow = false
+}
+
+/// Home, the app's main window: one value, so opening it again brings it forward.
+public enum HomeID: String, Codable, Hashable, Sendable {
+    case main
+}
+
+/// The window actions of the scenes on screen, for code outside a view. An action
+/// made from a fresh environment opens nothing on iOS.
+@MainActor
+@Observable
+public final class WindowActions {
+    public static let shared = WindowActions()
+
+    private var scenes: [UUID: (open: OpenWindowAction, dismiss: DismissWindowAction)] = [:]
+    private var homes = Set<UUID>()
+    /// Whether this platform shows several windows, as an iPad and a Mac do.
+    public private(set) var supportsMultipleWindows = false
+
+    var openWindow: OpenWindowAction? { supportsMultipleWindows ? scenes.values.first?.open : nil }
+    var dismissWindow: DismissWindowAction? { supportsMultipleWindows ? scenes.values.first?.dismiss : nil }
+    var isHomeOpen: Bool { !homes.isEmpty }
+
+    fileprivate func appear(_ id: UUID, open: OpenWindowAction, dismiss: DismissWindowAction, isHome: Bool, supportsMultipleWindows: Bool) {
+        scenes[id] = (open, dismiss)
+        if isHome { homes.insert(id) }
+        self.supportsMultipleWindows = supportsMultipleWindows
+    }
+
+    fileprivate func disappear(_ id: UUID) {
+        scenes[id] = nil
+        homes.remove(id)
+    }
+}
+
+private struct WindowActionsModifier: ViewModifier {
+    let isHome: Bool
+
+    @Environment(\.openWindow) private var openWindow
+    @Environment(\.dismissWindow) private var dismissWindow
+    @Environment(\.supportsMultipleWindows) private var supportsMultipleWindows
+    @State private var id = UUID()
+
+    func body(content: Content) -> some View {
+        content
+            .onAppear {
+                WindowActions.shared.appear(
+                    id, open: openWindow, dismiss: dismissWindow,
+                    isHome: isHome, supportsMultipleWindows: supportsMultipleWindows
+                )
+            }
+            .onDisappear { WindowActions.shared.disappear(id) }
+    }
+}
+
+public extension View {
+    /// Lends this scene's window actions to ``WindowActions``; apply it to each scene's root.
+    func windowActions(isHome: Bool = false) -> some View {
+        modifier(WindowActionsModifier(isHome: isHome))
+    }
 }
