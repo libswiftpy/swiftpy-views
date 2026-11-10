@@ -217,6 +217,7 @@ struct WindowContent: View {
             #endif
         }
         .environment(\.isInWindow, true)
+        .windowSnapshots(for: window.id.id)
         // The system closed it, as a window of its own can always be.
         .onDisappear {
             Window.presentedWindows.remove(window.id)
@@ -267,6 +268,11 @@ public extension EnvironmentValues {
     @Entry var isInWindow = false
 }
 
+public struct PythonWindowInfo: Identifiable, Hashable, Sendable {
+    public let id: String
+    public let title: String?
+}
+
 /// A notebook, as what its windows and callbacks belong to.
 public struct WindowOwner: Hashable, Sendable {
     public let id: String
@@ -306,6 +312,19 @@ public final class WindowActions {
 
     public func openPythonWindows(of owner: String) -> Int {
         scriptWindows.filter { $0.owner?.id == owner }.count
+    }
+
+    /// A notebook's shown windows, as a host lists them.
+    public func pythonWindows(of owner: String) -> [PythonWindowInfo] {
+        scriptWindows
+            .filter { $0.owner?.id == owner }
+            .map { PythonWindowInfo(id: $0.id.id, title: $0.title) }
+            .sorted { $0.id < $1.id }
+    }
+
+    /// Brings a window of its own to the front; opening its id again focuses it.
+    public func bringForward(_ id: String) {
+        openWindow?(value: Window.ID(id: id))
     }
 
     private var scriptWindows: [Window] {
