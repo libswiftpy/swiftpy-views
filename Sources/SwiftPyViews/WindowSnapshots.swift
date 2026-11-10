@@ -34,6 +34,11 @@ public final class WindowSnapshots {
     }
 
     func capture(_ id: String) {
+        // Drawing a window holds the main thread, which RealityKit content makes
+        // slow enough to stall Python's systems; visionOS shows windows side by side anyway.
+        #if os(visionOS)
+        return
+        #endif
         guard let window = windows[id]?.value else {
             windows[id] = nil
             images[id] = nil
@@ -132,6 +137,11 @@ private struct WindowSnapshotsModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .background(WindowReader(id: id).allowsHitTesting(false))
+            // Once it has drawn, for Home's card; then only as it's left.
+            .task {
+                try? await Task.sleep(for: .seconds(1))
+                WindowSnapshots.shared.capture(id)
+            }
             // Its look as it's left, as Home comes forward.
             .onChange(of: scenePhase) { _, phase in
                 if phase != .active { WindowSnapshots.shared.capture(id) }
