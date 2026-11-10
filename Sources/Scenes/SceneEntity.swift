@@ -54,6 +54,10 @@ final class EntityTransform {
 /// A scene's root, which Python never sees.
 struct SceneRootComponent: Component {}
 
+/// An invisible entity a scene keeps changing while Python systems run:
+/// RealityKit draws no next frame after one that changes nothing.
+struct SceneHeartbeatComponent: Component {}
+
 /// An object in a scene, with a transform, children and components.
 @Scriptable("Entity")
 @MainActor

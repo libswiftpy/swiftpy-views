@@ -31,11 +31,6 @@ final class SceneContext {
         self.perform = perform
     }
 
-    /// The same frame, given time skipped before it too.
-    internal func adding(_ seconds: Double) -> SceneContext {
-        SceneContext(deltaTime: deltaTime + seconds, sceneID: sceneID, perform: perform)
-    }
-
     func _query(_ indices: [Int]) -> [Entity] {
         perform(PythonComponents.query(indices)).map(SceneEntity.wrapper)
     }
@@ -63,26 +58,17 @@ enum PythonSystems {
         steps = steps.filter { owner != nil && $0.value.owner != owner }
     }
 
+    static var isEmpty: Bool { steps.isEmpty }
+
     static func hasSteps(owner: String) -> Bool {
         steps.values.contains { $0.owner == owner }
     }
 
-    /// Time skipped while Python was busy elsewhere, given to the next update.
-    private static var skipped: Double = 0
-
     static func update(_ context: @autoclosure () -> SceneContext) {
         guard !steps.isEmpty else { return }
-        // Waiting for Python would freeze the frame; RealityKit renders on, and
-        // the steps catch up with the time skipped once it's free.
-        if Interpreter.isBusyElsewhere {
-            skipped += context().deltaTime
-            return
-        }
-        var context = context()
-        if skipped > 0 {
-            context = context.adding(skipped)
-            skipped = 0
-        }
+        // Never skipped while Python is busy elsewhere: RealityKit stops drawing
+        // a frame that changes nothing, which froze the scene until it was moved.
+        let context = context()
         // A copy: a step that fails unregisters itself.
         for step in Array(steps.values) {
             step.callback(with: context)
@@ -100,5 +86,12 @@ private struct PythonSystemDriver: System {
         ) { query in
             Array(context.entities(matching: query, updatingSystemWhen: .rendering))
         })
+        // A change every frame, so RealityKit draws the next one: a step that
+        // changed nothing, as with no time elapsed, left the scene stopped.
+        guard !PythonSystems.isEmpty else { return }
+        let heartbeats = EntityQuery(where: .has(SceneHeartbeatComponent.self))
+        for heartbeat in context.entities(matching: heartbeats, updatingSystemWhen: .rendering) {
+            heartbeat.position.x = heartbeat.position.x == 0 ? 1e-6 : 0
+        }
     }
 }

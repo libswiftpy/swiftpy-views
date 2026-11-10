@@ -28,7 +28,9 @@ final class SceneView {
     /// Has no effect on visionOS, where the viewer moves instead.
     var cameraControl: CameraControlValue?
 
-    var entities: [Entity] { root.children.map(SceneEntity.wrapper) }
+    var entities: [Entity] {
+        root.children.filter { !$0.components.has(SceneHeartbeatComponent.self) }.map(SceneEntity.wrapper)
+    }
 
     internal let root = RealityKit.Entity()
     /// The view's size in metres, while it's shown on visionOS.
@@ -41,7 +43,11 @@ final class SceneView {
     init(cameraControl: CameraControlValue? = "orbit") {
         self.cameraControl = cameraControl
         SceneRootComponent.registerComponent()
+        SceneHeartbeatComponent.registerComponent()
         root.components.set(SceneRootComponent())
+        let heartbeat = RealityKit.Entity()
+        heartbeat.components.set(SceneHeartbeatComponent())
+        root.addChild(heartbeat)
         Self.scenes.add(self)
     }
 
