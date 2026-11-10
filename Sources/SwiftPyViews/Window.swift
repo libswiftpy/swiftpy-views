@@ -175,8 +175,6 @@ class Window: Identifiable {
 struct WindowContent: View {
     @State var window: Window
 
-    @Environment(\.openWindow) private var openWindow
-
     var body: some View {
         @Bindable var window = window
 
@@ -198,14 +196,6 @@ struct WindowContent: View {
             // A real window gets a close from the OS; a modal has to bring one.
             #if canImport(UIKit)
             .toolbar {
-                // Back to Home, from a window left open once Home was closed.
-                if !window.isPresentedModally && !WindowActions.shared.isHomeOpen {
-                    ToolbarItem(placement: .topBarLeading) {
-                        SwiftUI.Button("Home", systemImage: "house") {
-                            openWindow(value: HomeID.main)
-                        }
-                    }
-                }
                 if window.closable && window.isPresentedModally {
                     // Pinned, it stays the trailing-most beside a view's own items.
                     if #available(iOS 27, visionOS 27, *) {
