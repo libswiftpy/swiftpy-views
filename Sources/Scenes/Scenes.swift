@@ -37,9 +37,13 @@ public enum Scenes {
         PyBind.module("scenes", in: .module)
     }
 
-    /// Forgets every Python system, for an interpreter that starts over: they
-    /// live outside `__main__`, and would go on running in the next notebook's scenes.
-    public static func removeSystems() {
-        PythonSystems.removeAll()
+    /// Forgets the Python systems, all or a notebook's, for code that starts over:
+    /// they live outside its namespace, and would go on running.
+    public static func removeSystems(owner: String? = nil) {
+        PythonSystems.removeAll(owner: owner)
+    }
+
+    public static func hasSystems(owner: String) -> Bool {
+        PythonSystems.hasSteps(owner: owner)
     }
 }

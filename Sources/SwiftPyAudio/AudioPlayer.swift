@@ -20,6 +20,8 @@ final class AudioPlayer {
     // Between play() and the player starting, off the main thread.
     private var isStarting = false
     private var isStoppedWhileStarting = false
+    /// The notebook whose code made it.
+    private let owner = SwiftPyAudio.currentOwner()
 
     // Playing players keep themselves alive, so a sound nothing refers to plays on.
     internal private(set) static var playing: [ObjectIdentifier: AudioPlayer] = [:]
@@ -175,11 +177,15 @@ final class AudioPlayer {
         }
     }
 
-    /// Stops every player that's playing.
-    internal static func stopAll() {
-        for player in playing.values {
+    /// Stops every player that's playing, or only an owner's.
+    internal static func stopAll(owner: String? = nil) {
+        for player in playing.values where owner == nil || player.owner == owner {
             player.stop()
         }
+    }
+
+    internal static func isPlaying(owner: String) -> Bool {
+        playing.values.contains { $0.owner == owner }
     }
 
     private func finish(throwing error: (any Error)?) {

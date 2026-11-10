@@ -15,8 +15,15 @@ public enum SwiftPyAudio {
         PyBind.module("audio", in: .module)
     }
 
-    /// Stops every sound that's playing, as when the notebook stops or changes.
-    public static func stopAll() {
-        AudioPlayer.stopAll()
+    /// The notebook running code now, which a sound made now belongs to; the host sets it.
+    public static var currentOwner: @MainActor () -> String? = { nil }
+
+    /// Stops every sound that's playing, or only an owner's, as when its notebook stops or closes.
+    public static func stopAll(owner: String? = nil) {
+        AudioPlayer.stopAll(owner: owner)
+    }
+
+    public static func isPlaying(owner: String) -> Bool {
+        AudioPlayer.isPlaying(owner: owner)
     }
 }
