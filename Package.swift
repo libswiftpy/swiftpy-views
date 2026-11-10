@@ -27,6 +27,10 @@ let package = Package(
             name: "Scenes",
             targets: ["Scenes"]
         ),
+        .library(
+            name: "MermaidDiagrams",
+            targets: ["MermaidDiagrams"]
+        ),
     ],
     dependencies: [
         .package(url: "https://github.com/felfoldy/SwiftPy", from: "0.30.0"),
@@ -62,6 +66,12 @@ let package = Package(
             dependencies: ["SwiftPy", "SwiftPyViews"],
             resources: [.copy("Resources/scenes.py")],
         ),
+        // A product of its own, so an App Clip can leave it out.
+        .target(
+            name: "MermaidDiagrams",
+            dependencies: ["SwiftPyViews"],
+            resources: [.copy("Resources/mermaid.min.js.lzma"), .copy("Resources/LICENSE")],
+        ),
         .testTarget(
             name: "SyntaxHighlightTests",
             dependencies: ["SyntaxHighlight"],
@@ -77,6 +87,10 @@ let package = Package(
         .testTarget(
             name: "SwiftPyDrawingTests",
             dependencies: ["SwiftPyDrawing"],
+        ),
+        .testTarget(
+            name: "MermaidDiagramsTests",
+            dependencies: ["MermaidDiagrams"],
         ),
         .testTarget(
             name: "ScenesTests",

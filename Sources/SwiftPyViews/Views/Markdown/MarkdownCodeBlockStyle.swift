@@ -15,8 +15,24 @@ import AppKit
 import UIKit
 #endif
 
+/// Views that draw a fenced block of a language, such as a diagram, in place of its code.
+@MainActor
+public enum MarkdownCodeBlockRenderers {
+    /// Keyed by the fence's language, in lowercase.
+    public static var renderers: [String: @MainActor (String) -> AnyView] = [:]
+}
+
 struct SwiftPyCodeBlockStyle: MarkdownCodeBlockStyle {
     func makeBody(configuration: Configuration) -> some View {
+        if let language = configuration.language?.split(separator: " ").first?.lowercased(),
+           let render = MarkdownCodeBlockRenderers.renderers[language] {
+            render(configuration.code)
+        } else {
+            code(configuration)
+        }
+    }
+
+    private func code(_ configuration: Configuration) -> some View {
         SwiftUI.VStack(alignment: .leading, spacing: 4) {
             if let language = configuration.language, !language.isEmpty {
                 SwiftUI.Text(language)
