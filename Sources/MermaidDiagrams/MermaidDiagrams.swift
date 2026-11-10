@@ -29,6 +29,9 @@ struct MermaidDiagram: View {
 
     @Environment(\.colorScheme) private var colorScheme
     @State private var page: WebPage?
+    /// Unstructured, so a redraw cancelled by streaming text doesn't cancel the load
+    /// and leave a page without Mermaid.
+    @State private var loading: Task<WebPage, Error>?
     @State private var size: CGSize?
     @State private var error: String?
 
@@ -67,13 +70,26 @@ struct MermaidDiagram: View {
 
     private func render(theme: String) async {
         do {
+            // Text still streaming in redraws once it rests.
+            if size != nil || error != nil {
+                try await Task.sleep(for: .milliseconds(250))
+            }
             let page: WebPage
             if let existing = self.page {
                 page = existing
             } else {
-                page = try await MermaidPage.make()
+                let loading = self.loading ?? Task { try await MermaidPage.make() }
+                self.loading = loading
+                do {
+                    page = try await loading.value
+                } catch {
+                    // A later redraw tries again.
+                    self.loading = nil
+                    throw error
+                }
                 self.page = page
             }
+            try Task.checkCancellation()
             switch try await MermaidPage.render(code, theme: theme, in: page) {
             case let .success(size):
                 self.size = size
@@ -108,13 +124,25 @@ enum MermaidPage {
         )
         let page = WebPage(configuration: configuration)
         for try await _ in page.load(html: html) {}
+        // A cancelled load ends without throwing.
+        try Task.checkCancellation()
+        guard try await page.callJavaScript("return typeof mermaid === 'object'") as? Bool == true else {
+            throw Failure(message: "Mermaid didn't load.")
+        }
         return page
     }
 
     /// The diagram's natural size, or Mermaid's message for code that doesn't parse.
     @MainActor
     static func render(_ code: String, theme: String, in page: WebPage) async throws -> Result<CGSize, Failure> {
-        let result = try await page.callJavaScript(render, arguments: ["source": code, "theme": theme]) as? [String: Any]
+        let result: [String: Any]?
+        do {
+            result = try await page.callJavaScript(render, arguments: ["source": code, "theme": theme]) as? [String: Any]
+        } catch let error as NSError {
+            // Its own message, rather than "A JavaScript exception occurred".
+            let message = error.userInfo["WKJavaScriptExceptionMessage"] as? String
+            return .failure(Failure(message: message ?? error.localizedDescription))
+        }
         if let width = result?["width"] as? Double, let height = result?["height"] as? Double, width > 0, height > 0 {
             return .success(CGSize(width: width, height: height))
         }
@@ -131,13 +159,13 @@ enum MermaidPage {
     """
 
     private static let render = """
-    mermaid.initialize({
-      startOnLoad: false,
-      securityLevel: 'strict',
-      theme,
-      fontFamily: '-apple-system, system-ui, sans-serif',
-    });
     try {
+      mermaid.initialize({
+        startOnLoad: false,
+        securityLevel: 'strict',
+        theme,
+        fontFamily: '-apple-system, system-ui, sans-serif',
+      });
       const { svg } = await mermaid.render('mermaid-diagram', source);
       const diagram = document.getElementById('diagram');
       diagram.innerHTML = svg;

@@ -32,4 +32,23 @@ struct MermaidDiagramsTests {
         }
         #expect(!failure.message.isEmpty)
     }
+
+    // Streaming text cancels redraws mid-load, which used to keep a page without Mermaid.
+    @Test func aCancelledLoadNeverGivesAPageWithoutMermaid() async throws {
+        for delay in [0, 5, 20, 50] {
+            let task = Task { try await MermaidPage.make() }
+            try await Task.sleep(for: .milliseconds(delay))
+            task.cancel()
+            if let page = try? await task.value {
+                #expect(try await page.callJavaScript("return typeof mermaid") as? String == "object")
+            }
+        }
+    }
+
+    @Test func redrawsOnTheSamePage() async throws {
+        let page = try await MermaidPage.make()
+        _ = try await MermaidPage.render("flowchart TD\n  A --> ", theme: "dark", in: page)
+        let size = try await MermaidPage.render("flowchart TD\n  A --> B", theme: "dark", in: page).get()
+        #expect(size.height > 20)
+    }
 }
