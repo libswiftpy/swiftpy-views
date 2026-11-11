@@ -335,7 +335,7 @@ public final class WindowActions {
 
     var openWindow: OpenWindowAction? { supportsMultipleWindows ? scenes.values.first?.open : nil }
     var dismissWindow: DismissWindowAction? { supportsMultipleWindows ? scenes.values.first?.dismiss : nil }
-    var isHomeOpen: Bool { !homes.isEmpty }
+    public var isHomeOpen: Bool { !homes.isEmpty }
 
     fileprivate func appear(_ id: UUID, open: OpenWindowAction, dismiss: DismissWindowAction, isHome: Bool, supportsMultipleWindows: Bool) {
         scenes[id] = (open, dismiss)

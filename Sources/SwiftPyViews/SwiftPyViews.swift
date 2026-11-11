@@ -73,23 +73,57 @@ public struct PythonWindowNavigator {
     }
 }
 
-/// A window whose Python `Window` is gone, as one restored from an earlier run:
+/// A window whose content is gone, as one restored from an earlier run:
 /// it makes way for Home.
-private struct StaleWindow: View {
+public struct StaleWindow: View {
     @Environment(\.openWindow) private var openWindow
     @Environment(\.dismissWindow) private var dismissWindow
 
-    var body: some View {
-        Color.clear.onAppear {
-            #if !os(macOS)
+    public init() {}
+
+    public var body: some View {
+        #if os(iOS) || os(visionOS)
+        // `dismissWindow` leaves a restored iPad scene open and blank.
+        SceneCloser { scene in
             if !WindowActions.shared.isHomeOpen {
                 openWindow(id: homeWindowID)
             }
-            #endif
-            dismissWindow()
+            UIApplication.shared.requestSceneSessionDestruction(scene.session, options: nil)
+        }
+        #else
+        Color.clear.onAppear { dismissWindow() }
+        #endif
+    }
+}
+
+#if os(iOS) || os(visionOS)
+/// Hands over its window's scene once it's in one.
+private struct SceneCloser: UIViewRepresentable {
+    let close: (UIWindowScene) -> Void
+
+    func makeUIView(context: Context) -> CloserView { CloserView(close: close) }
+    func updateUIView(_ view: CloserView, context: Context) {}
+
+    final class CloserView: UIView {
+        let close: (UIWindowScene) -> Void
+        private var closed = false
+
+        init(close: @escaping (UIWindowScene) -> Void) {
+            self.close = close
+            super.init(frame: .zero)
+        }
+        required init?(coder: NSCoder) { fatalError() }
+
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            guard !closed, let scene = window?.windowScene else { return }
+            closed = true
+            // After the scene finishes connecting.
+            DispatchQueue.main.async { self.close(scene) }
         }
     }
 }
+#endif
 
 public struct PythonWindows: Scene {
     public init() {

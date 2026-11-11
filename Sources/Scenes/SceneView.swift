@@ -118,6 +118,8 @@ private extension SceneView {
 
 private struct SceneContent: View {
     let model: SceneView
+    @Environment(\.isInWindow) private var isInWindow
+    /// The fitted side: the width in a card, which is square, the shorter side in a window.
     @State private var height: CGFloat?
 
     var body: some View {
@@ -143,7 +145,15 @@ private struct SceneContent: View {
         .realityViewCameraControls(model.cameraControls)
         #endif
         .realityViewLayoutBehavior(.centered)
-        .onGeometryChange(for: CGFloat.self, of: \.size.width) { height = $0 }
-        .frame(minHeight: height)
+        // In a window it draws under the bars to the edges; fitting still uses
+        // the safe area, measured outside this.
+        .ignoresSafeArea(edges: isInWindow ? .all : [])
+        .onGeometryChange(for: CGFloat.self, of: { isInWindow ? min($0.size.width, $0.size.height) : $0.size.width }) {
+            height = $0
+        }
+        .frame(minHeight: isInWindow ? nil : height)
+        .frame(maxWidth: .infinity, maxHeight: isInWindow ? .infinity : nil)
+        // A window hands its whole space over, rather than scrolling a square.
+        .fillsAvailableSpace()
     }
 }
