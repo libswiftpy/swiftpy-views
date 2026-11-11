@@ -56,6 +56,17 @@ struct ScenesTests {
         #expect(evaluate("'@classmethod' in _stub") == "True")
     }
 
+    // `scenes.Transform` shares the name, and sorts first.
+    @Test func aViewsTransformIsTheViewsOne() async {
+        await Interpreter.run("""
+        import json, interpreter
+        _builtins = json.loads(interpreter._stubs())['_swiftpy_builtins.pyi']
+        """)
+        #expect(evaluate("'-> views.Transform' in _builtins") == "True")
+        #expect(evaluate("'import views' in _builtins") == "True")
+        #expect(evaluate("'from scenes import' in _builtins") == "False")
+    }
+
     @Test func vectorsAreMadeAndRead() async {
         await Interpreter.run("""
         _a = Vector3(1, 2, 3)

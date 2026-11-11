@@ -39,7 +39,8 @@ final class Transform {
 extension Transform {
     static func installModifier(on view: PyType) {
         view.function(
-            "transform(self, x: Length = 0, y: Length = 0) -> Transform",
+            // By its module: `scenes.Transform` has the name too.
+            "transform(self, x: Length = 0, y: Length = 0) -> views.Transform",
             "Offsets the view from where the layout puts it, as a `Transform` whose `x` and `y` can be changed later."
         ) { receiver, args in
             PyAPI.return {
