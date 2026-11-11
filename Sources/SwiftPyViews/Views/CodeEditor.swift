@@ -248,6 +248,7 @@ public struct CodeScrollPositionKey: PreferenceKey {
 public struct CodeEditorContent: View {
     @Bindable var model: CodeEditor
     private let diff: CodeDiffLines?
+    private let firstLine: Int
     private let gutterMark: (Int) -> AnyView?
     @State private var scrollPosition = CodeScrollPosition()
 
@@ -261,21 +262,25 @@ public struct CodeEditorContent: View {
     // Read so the gutter is remeasured when the text size changes.
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    /// - Parameter gutterMark: A view to show in a line's place in the gutter,
-    ///   by 1-based line, such as a diagnostic's symbol; it takes the taps there.
+    /// - Parameters:
+    ///   - firstLine: The number the first line shows, for code taken from a longer file.
+    ///   - gutterMark: A view to show in a line's place in the gutter,
+    ///     by 1-based line, such as a diagnostic's symbol; it takes the taps there.
     public init(
         model: CodeEditor,
         diff: CodeDiffLines? = nil,
+        firstLine: Int = 1,
         gutterMark: @escaping (Int) -> AnyView? = { _ in nil }
     ) {
         self.model = model
         self.diff = diff
+        self.firstLine = firstLine
         self.gutterMark = gutterMark
     }
 
     public var body: some View {
         let lineCount = model.source.count { $0 == "\n" } + 1
-        let gutterWidth = CodeTextView.characterAdvance * CGFloat("\(lineCount)".count) + 16
+        let gutterWidth = CodeTextView.characterAdvance * CGFloat("\(lineCount + firstLine - 1)".count) + 16
 
         CodeTextView(
             text: model.source,
@@ -371,7 +376,7 @@ public struct CodeEditorContent: View {
     /// Each row's number; in a diff, removed rows have none and the rest are
     /// numbered as the new code.
     private func lineLabels(_ lines: Int) -> [String] {
-        var number = 0
+        var number = firstLine - 1
         return (0..<lines).map { row in
             if diff?.removed.contains(row) == true { return "" }
             number += 1
