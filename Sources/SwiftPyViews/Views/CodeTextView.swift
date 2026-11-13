@@ -680,6 +680,9 @@ extension CodeTextView: UIViewRepresentable {
         scrollView.contentInsetAdjustmentBehavior = .never
 
         textView.backgroundColor = .clear
+        // The indent guides are drawn into it: resized, as when the keyboard
+        // goes and a window's editor grows, they're drawn again, not stretched.
+        textView.contentMode = .redraw
         // The highlight sets the font too, but it lands later — and the layout
         // is measured before it does.
         textView.font = Self.font
