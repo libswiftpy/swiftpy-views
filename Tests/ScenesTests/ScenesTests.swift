@@ -144,6 +144,77 @@ struct ScenesTests {
         #expect(close("_turned.x", -1))
     }
 
+    @Test func aCameraComponentIsLiveOnItsEntity() async {
+        await Interpreter.run("""
+        from scenes.components import FieldOfViewOrientation, PerspectiveCameraComponent
+        _camera = Entity("camera")
+        _made = PerspectiveCameraComponent(fov=40)
+        _camera.components.set(_made)
+        _live = _camera.components[PerspectiveCameraComponent]
+        _live.fov = 30
+        _again = _camera.components[PerspectiveCameraComponent]
+        _far = _again.far
+        _wide = PerspectiveCameraComponent(fov_orientation=FieldOfViewOrientation.HORIZONTAL)
+        """)
+        #expect(evaluate("_made.fov") == "40.0", "A made one keeps its own values.")
+        #expect(evaluate("_again.fov") == "30.0", "One read from the entity changes it.")
+        #expect(evaluate("_far") == "None")
+        #expect(evaluate("_wide.fov_orientation") == "horizontal")
+        #expect(evaluate("_raised(lambda: PerspectiveCameraComponent(fov_orientation='diagonal'))") == "TypeError")
+    }
+
+    @Test func nativeComponentsCountAndQueryWithPythonOnes() async {
+        await Interpreter.run("""
+        from scenes.components import PerspectiveCameraComponent
+        class Tracked(Component):
+            pass
+        _both = Entity("both")
+        _both.components.set(PerspectiveCameraComponent())
+        _both.components.set(Tracked())
+        _only = Entity("only")
+        _only.components.set(PerspectiveCameraComponent())
+        _counts = (len(_both.components), PerspectiveCameraComponent in _both.components)
+        _scene = Scene(_both, _only)
+        """)
+        #expect(evaluate("_counts") == "(2, True)")
+        #expect(evaluate("_raised(lambda: _both.components.remove(PerspectiveCameraComponent))") == "None")
+        #expect(evaluate("PerspectiveCameraComponent in _both.components") == "False")
+    }
+
+    @Test func lookAtTurnsTowardAPoint() async {
+        await Interpreter.run("""
+        _eye = Entity("eye")
+        _eye.transform.translation = Vector3(0, 0, 1)
+        _eye.look_at(Vector3(0, 0, 0))
+        _forward = _eye.transform.rotation.rotate(Vector3(0, 0, -1))
+        """)
+        #expect(close("_forward.z", -1))
+    }
+
+    @Test func anglesSetOneAtATime() async {
+        await Interpreter.run("""
+        import math
+        _box = Entity.box()
+        _box.transform.rotation.pitch = 0.3
+        _box.transform.rotation.yaw += math.pi / 2
+        _rotation = _box.transform.rotation
+        """)
+        #expect(close("_rotation.yaw", Double.pi / 2))
+        #expect(close("_rotation.pitch", 0.3))
+        #expect(close("_rotation.roll", 0))
+    }
+
+    @Test func aSceneTakesItsEntities() async {
+        await Interpreter.run("""
+        _box = Entity.box()
+        _ball = Entity.sphere(0.1)
+        _made = Scene(_box, _ball, camera_control=None)
+        """)
+        #expect(evaluate("_made.entities[0] is _box and _made.entities[1] is _ball") == "True")
+        #expect(evaluate("_made.camera_control") == "None")
+        #expect(evaluate("_raised(lambda: Scene('box'))") == "TypeError")
+    }
+
     @Test func aSceneHoldsItsEntities() async {
         await Interpreter.run("""
         _scene = Scene()

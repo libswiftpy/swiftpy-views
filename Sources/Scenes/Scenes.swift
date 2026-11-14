@@ -20,6 +20,7 @@ public enum Scenes {
                 SceneEntity.self,
                 SceneContext.self,
                 SceneView.self,
+                SceneCameraComponent.self,
             )
 
             module.def("_register_system(name: str, step: Callable) -> None") { argc, argv in
@@ -35,6 +36,7 @@ public enum Scenes {
             }
         }
         PyBind.module("scenes", in: .module)
+        PyBind.module("scenes.components", in: .module)
     }
 
     /// Forgets the Python systems, all or a notebook's, for code that starts over:

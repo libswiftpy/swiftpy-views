@@ -249,6 +249,23 @@ final class Quaternion: @MainActor CustomStringConvertible {
         set { simd.real = newValue }
     }
 
+    /// The turn around the up axis, in radians. Each angle can be set alone,
+    /// keeping the other two: `entity.transform.rotation.yaw += turn`.
+    var yaw: Float {
+        get { angles.yaw }
+        set { angles = (newValue, angles.pitch, angles.roll) }
+    }
+    /// The tilt up or down, around the side axis, in radians.
+    var pitch: Float {
+        get { angles.pitch }
+        set { angles = (angles.yaw, newValue, angles.roll) }
+    }
+    /// The lean around the forward axis, in radians.
+    var roll: Float {
+        get { angles.roll }
+        set { angles = (angles.yaw, angles.pitch, newValue) }
+    }
+
     internal var live: Live<simd_quatf>?
     internal var stored: simd_quatf
 
@@ -284,6 +301,22 @@ extension Quaternion {
         get { live?.get() ?? stored }
         set {
             if let live { live.set(newValue) } else { stored = newValue }
+        }
+    }
+    /// Yaw, pitch and roll, applied in that order: around Y, then X, then Z.
+    var angles: (yaw: Float, pitch: Float, roll: Float) {
+        get {
+            let m = simd_float3x3(simd)
+            // Rows of R = Ry · Rx · Rz, from its columns.
+            let pitch = asin(max(-1, min(1, -m.columns.2.y)))
+            let yaw = atan2(m.columns.2.x, m.columns.2.z)
+            let roll = atan2(m.columns.0.y, m.columns.1.y)
+            return (yaw, pitch, roll)
+        }
+        set {
+            simd = simd_quatf(angle: newValue.yaw, axis: [0, 1, 0])
+                * simd_quatf(angle: newValue.pitch, axis: [1, 0, 0])
+                * simd_quatf(angle: newValue.roll, axis: [0, 0, 1])
         }
     }
 }

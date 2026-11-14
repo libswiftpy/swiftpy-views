@@ -31,8 +31,8 @@ final class SceneContext {
         self.perform = perform
     }
 
-    func _query(_ indices: [Int]) -> [Entity] {
-        perform(PythonComponents.query(indices)).map(SceneEntity.wrapper)
+    func _query(_ indices: [Int], _ natives: [String]) -> [Entity] {
+        perform(PythonComponents.query(indices, natives: natives)).map(SceneEntity.wrapper)
     }
 }
 

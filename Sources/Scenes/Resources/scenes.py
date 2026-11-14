@@ -2,7 +2,7 @@ __doc__ = """RealityKit scenes: entities, Python components, and systems that up
 
 ```python
 import scenes
-from scenes import Component, Entity, Quaternion, Scene, System, Vector3
+from scenes import Component, Entity, Scene, System, Vector3
 
 class Spin(Component):
     speed = 2
@@ -11,18 +11,17 @@ class Spinner(System):
     def update(self, context):
         for entity in context.query(Spin):
             turn = entity.components[Spin].speed * context.delta_time
-            rotation = entity.transform.rotation
-            entity.transform.rotation = Quaternion.from_axis_angle(Vector3.up(), turn) * rotation
+            entity.transform.rotation.yaw += turn
 
 Spinner.register()
 
 cube = Entity.box(Vector3(0.2, 0.2, 0.2), color="red")
 cube.components.set(Spin())
 
-scene = Scene()
-scene.add(cube)
-scene
-```"""
+Scene(cube)
+```
+
+RealityKit's own components, such as a camera, are in `scenes.components`."""
 __all__ = [
     "CameraControl", "CameraControlValue", "Component", "Components", "Entity", "Quaternion", "Scene", "SceneContext",
     "System", "Transform", "Vector2", "Vector3", "Vector4",
@@ -71,25 +70,43 @@ class Component:
         cls._index = indices.setdefault(_key(cls), len(indices) + 1)
 
 
-C = TypeVar("C", bound=Component)
+# Unbound: RealityKit's components from `scenes.components` aren't `Component`s.
+C = TypeVar("C")
+
+
+# RealityKit's components that `scenes.components` binds, which register here.
+_native_components: list = []
+
+
+def _is_native(cls) -> bool:
+    return isinstance(cls, type) and hasattr(cls, '_native')
 
 
 class Components:
-    """The Python components of an entity, by class."""
+    """An entity's components, by class: Python ones, and RealityKit's from
+    `scenes.components`."""
 
     def __init__(self, entity: Entity) -> None:
         self._entity = entity
 
-    def set(self, component: Component) -> None:
+    def set(self, component) -> None:
         """Adds it, replacing one of the same class."""
+        if _is_native(type(component)):
+            component._apply(self._entity)
+            return
         if not isinstance(component, Component):
             raise TypeError(f"expected a Component, not {type(component).__name__}")
         self._entity._set_component(type(component)._index, component)
 
     def get(self, type: type[C]) -> C | None:
+        if _is_native(type):
+            return type._read(self._entity)
         return self._entity._component(type._index)
 
-    def remove(self, type: type[Component]) -> None:
+    def remove(self, type: type) -> None:
+        if _is_native(type):
+            type._remove(self._entity)
+            return
         self._entity._remove_component(type._index)
 
     def __getitem__(self, type: type[C]) -> C:
@@ -98,27 +115,34 @@ class Components:
             raise KeyError(type.__name__)
         return component
 
-    def __contains__(self, type: type[Component]) -> bool:
+    def __contains__(self, type: type) -> bool:
         return self.get(type) is not None
 
-    def __iter__(self) -> Iterator[Component]:
-        return iter(self._entity._component_values())
+    def __iter__(self) -> Iterator:
+        return iter(self._values())
 
     def __len__(self) -> int:
-        return len(self._entity._component_values())
+        return len(self._values())
+
+    def _values(self) -> list:
+        natives = [value for cls in _native_components if (value := cls._read(self._entity)) is not None]
+        return list(self._entity._component_values()) + natives
 
 
 Entity.components = property(Components, doc="The entity's Python components.")
 _declare(Entity, "components: Components")
 
 
-def _query(self, *components: type[Component]) -> Iterator[Entity]:
-    """The scene's entities that have all of `components`."""
-    return iter(self._query([component._index for component in components]))
+def _query(self, *components: type) -> Iterator[Entity]:
+    """The scene's entities that have all of `components`: Python ones, and
+    RealityKit's from `scenes.components`."""
+    indices = [component._index for component in components if not _is_native(component)]
+    natives = [component._native for component in components if _is_native(component)]
+    return iter(self._query(indices, natives))
 
 
 SceneContext.query = _query
-_declare(SceneContext, "def query(self, *components: type[Component]) -> Iterator[Entity]: ...")
+_declare(SceneContext, "def query(self, *components: type) -> Iterator[Entity]: ...")
 
 
 class System:

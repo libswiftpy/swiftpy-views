@@ -58,21 +58,31 @@ class Window: Identifiable {
     // Weak: the presented controller's root view holds the window.
     @ObservationIgnored private weak var presentedController: UIViewController?
 
-    /// Whether the window is a modal rather than a window of its own.
-    var isPresentedModally: Bool { presentedController != nil }
+    /// Whether the window is a modal rather than a window of its own; observed,
+    /// so its Close shows however early the content first draws.
+    private(set) var isPresentedModally = false
     #endif
 
     /// Creates a window to present views in.
     ///
+    /// content: A view to show. A string without a title is the title instead,
+    ///   as `Window("Color Mixer")` has always been; `Text("…")` shows one. Defaults to None.
     /// title: Text the navigation stack shows. Defaults to None, which leaves the window untitled.
     /// closable: Whether the window shows a close button. Defaults to True.
     /// sheet: Presents the window as a sheet instead of a fullscreen cover. Defaults to False.
-    init(title: String? = nil, closable: Bool = true, sheet: Bool = false) {
+    init(content: PyObject? = nil, title: String? = nil, closable: Bool = true, sheet: Bool = false) {
+        var content = content
+        var title = title
+        if title == nil, let text = content.flatMap({ String.isConvertible($0.reference) ? String.fromPython($0.reference) : nil }) {
+            title = text
+            content = nil
+        }
         self.title = title
         self.closable = closable
         self.sheet = sheet
         id = ID(id: UUID().uuidString)
         owner = WindowActions.shared.owner
+        if let content { views.append(content) }
         Window.windows[id] = self
     }
 
@@ -108,6 +118,7 @@ class Window: Identifiable {
 
     /// Presents the window.
     func show() {
+        Interpreter.reportWindowShown()
         #if os(macOS)
         let opensWindow = true
         #else
@@ -143,8 +154,9 @@ class Window: Identifiable {
         // A window without a close button can't be swiped away either.
         controller.isModalInPresentation = !closable
 
-        topController?.present(controller, animated: true)
         presentedController = controller
+        isPresentedModally = true
+        topController?.present(controller, animated: true)
         Window.presentedWindows.insert(id)
         #endif
     }
@@ -155,6 +167,7 @@ class Window: Identifiable {
         if let controller = presentedController {
             controller.dismiss(animated: true)
             presentedController = nil
+            isPresentedModally = false
             Window.presentedWindows.remove(id)
             return
         }
@@ -204,6 +217,9 @@ struct WindowContent: View {
             }
             // A real window gets a close from the OS; a modal has to bring one.
             #if canImport(UIKit)
+            // Without a title the bar would stay hidden, and Close with it.
+            .toolbarVisibility(window.closable && window.isPresentedModally ? .visible : .automatic, for: .navigationBar)
+            .navigationBarTitleDisplayMode(window.title == nil ? .inline : .automatic)
             .toolbar {
                 if window.closable && window.isPresentedModally {
                     // Pinned, it stays the trailing-most beside a view's own items.
@@ -297,6 +313,7 @@ public final class WindowActions {
     private var scenes: [UUID: (open: OpenWindowAction, dismiss: DismissWindowAction)] = [:]
     private var homes = Set<UUID>()
     var presented = Set<Window.ID>()
+
     /// The notebook running now, which windows and callbacks made now belong to.
     public var currentOwner: (@MainActor () -> WindowOwner?)?
     public var owner: WindowOwner? { currentOwner?() }

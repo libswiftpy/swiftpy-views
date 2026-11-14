@@ -100,14 +100,35 @@ final class SceneEntity {
         Self.wrappers.setObject(self, forKey: entity)
     }
 
-    func add(_ child: Entity) { entity.addChild(child.entity) }
-    func remove(_ child: Entity) { entity.removeChild(child.entity) }
+    func add(_ child: Entity) {
+        entity.addChild(child.entity)
+        SceneView.cameraDidChange(on: entity)
+    }
+
+    func remove(_ child: Entity) {
+        entity.removeChild(child.entity)
+        SceneView.cameraDidChange(on: entity)
+    }
+
+    /// Turns it to face `target`, a point in its parent's space, as a camera is aimed.
+    ///
+    /// up: Which way is up. Defaults to None, for `Vector3.up()`.
+    func lookAt(_ target: Vector3, up: Vector3? = nil) {
+        entity.look(
+            at: target.simd,
+            from: entity.position(relativeTo: entity.parent),
+            upVector: up?.simd ?? [0, 1, 0],
+            relativeTo: entity.parent
+        )
+    }
 
     /// A copy with its children. Python components are shared with the original.
     func clone() -> Entity { SceneEntity(wrapping: entity.clone(recursive: true)) }
 
-    static func box(size: Vector3, color: ColorValue = "white") throws -> Entity {
-        try model(.generateBox(size: size.simd), color: color)
+    /// size: None for a 10 cm cube.
+    // Optional: a default of Vector3(...) would be Swift in the type stub.
+    static func box(size: Vector3? = nil, color: ColorValue = "white") throws -> Entity {
+        try model(.generateBox(size: size?.simd ?? SIMD3(repeating: 0.1)), color: color)
     }
 
     static func sphere(radius: Float, color: ColorValue = "white") throws -> Entity {

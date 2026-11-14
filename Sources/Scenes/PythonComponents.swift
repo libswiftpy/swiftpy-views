@@ -62,9 +62,10 @@ enum PythonComponents {
         types.keys.sorted().compactMap { value($0, on: entity) }
     }
 
-    /// Entities with every component in `indices`, or all without any.
-    static func query(_ indices: [Int]) -> EntityQuery {
-        let predicates = indices.map { predicate(type($0)) }
+    /// Entities with every component in `indices` and every native one named
+    /// in `natives`, or all without any.
+    static func query(_ indices: [Int], natives: [String] = []) -> EntityQuery {
+        let predicates = indices.map { predicate(type($0)) } + natives.compactMap(NativeComponents.predicate)
         guard let first = predicates.first else { return EntityQuery() }
         return EntityQuery(where: predicates.dropFirst().reduce(first) { $0 && $1 })
     }
