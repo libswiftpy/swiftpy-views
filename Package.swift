@@ -64,7 +64,7 @@ let package = Package(
         .target(
             name: "Scenes",
             dependencies: ["SwiftPy", "SwiftPyViews"],
-            resources: [.copy("Resources/scenes.py")],
+            resources: [.copy("Resources/scenes.py"), .copy("Resources/scenes.components.py")],
         ),
         // A product of its own, so an App Clip can leave it out.
         .target(

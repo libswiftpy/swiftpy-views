@@ -1,4 +1,4 @@
-__doc__ = """RealityKit's own components, set on entities next to Python ones.
+__doc__ = """Built-in components, set and queried as any other.
 
 ```python
 from scenes import *

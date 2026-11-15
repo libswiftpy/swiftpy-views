@@ -1,27 +1,26 @@
-__doc__ = """RealityKit scenes: entities, Python components, and systems that update them.
+__doc__ = """3D scenes: entities, components that hold their data, and systems that update them.
 
 ```python
-import scenes
-from scenes import Component, Entity, Scene, System, Vector3
+from scenes import *
 
 class Spin(Component):
-    speed = 2
+    speed: float = 2.0
 
 class Spinner(System):
-    def update(self, context):
+    def update(self, context: SceneContext) -> None:
         for entity in context.query(Spin):
             turn = entity.components[Spin].speed * context.delta_time
             entity.transform.rotation.yaw += turn
 
 Spinner.register()
 
-cube = Entity.box(Vector3(0.2, 0.2, 0.2), color="red")
+cube = Entity.box(color="red")
 cube.components.set(Spin())
 
 Scene(cube)
 ```
 
-RealityKit's own components, such as a camera, are in `scenes.components`."""
+Built-in components, such as a camera, are in `scenes.components`."""
 __all__ = [
     "CameraControl", "CameraControlValue", "Component", "Components", "Entity", "Quaternion", "Scene", "SceneContext",
     "System", "Transform", "Vector2", "Vector3", "Vector4",
@@ -57,8 +56,8 @@ def _declare(cls: type, declaration: str) -> None:
 
 
 class Component:
-    """Subclass to add data to entities; any attributes it has stay in Python.
-    An instance belongs to one entity, and a cloned entity shares it."""
+    """Subclass to add data to entities. An instance belongs to one entity,
+    and a cloned entity shares it."""
 
     _indices = {}
     _index = 0
@@ -83,8 +82,7 @@ def _is_native(cls) -> bool:
 
 
 class Components:
-    """An entity's components, by class: Python ones, and RealityKit's from
-    `scenes.components`.
+    """An entity's components, by class.
 
     ```python
     spin = cube.components[Spin]
@@ -133,13 +131,12 @@ class Components:
         return list(self._entity._component_values()) + natives
 
 
-Entity.components = property(Components, doc="The entity's Python components.")
+Entity.components = property(Components, doc="The entity's components.")
 _declare(Entity, "components: Components")
 
 
 def _query(self, *components: type) -> Iterator[Entity]:
-    """The scene's entities that have all of `components`: Python ones, and
-    RealityKit's from `scenes.components`."""
+    """The scene's entities that have all of `components`."""
     indices = [component._index for component in components if not _is_native(component)]
     natives = [component._native for component in components if _is_native(component)]
     return iter(self._query(indices, natives))
@@ -150,8 +147,8 @@ _declare(SceneContext, "def query(self, *components: type) -> Iterator[Entity]: 
 
 
 class System:
-    """Subclass and `register()`. Like RealityKit's, it applies to every scene,
-    with an instance per scene. `update` runs every frame on the main thread,
+    """Subclass and `register()`. It applies to every scene, with an instance
+    per scene. `update` runs every frame on the main thread,
     so a slow one slows the view, and it can't be `async`. An exception is
     printed to the card that registered it, and it's unregistered."""
 
@@ -161,7 +158,7 @@ class System:
         the seconds since the last frame, to move by time rather than frames.
 
         ```python
-        def update(self, context):
+        def update(self, context: SceneContext) -> None:
             for entity in context.query(Spin):
                 entity.transform.rotation.yaw += entity.components[Spin].speed * context.delta_time
         ```"""

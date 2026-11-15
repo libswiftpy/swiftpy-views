@@ -122,7 +122,7 @@ final class SceneEntity {
         )
     }
 
-    /// A copy with its children. Python components are shared with the original.
+    /// A copy with its children, sharing the original's `Component`s.
     func clone() -> Entity { SceneEntity(wrapping: entity.clone(recursive: true)) }
 
     /// size: None for a 10 cm cube.

@@ -9,12 +9,10 @@ import SwiftPy
 import SwiftPyViews
 import SwiftUI
 
-/// A RealityKit scene, and the view showing it.
+/// A 3D scene, and the view showing it.
 ///
 /// ```python
-/// import scenes
-///
-/// scenes.Scene(scenes.Entity.box(color="red"))
+/// Scene(Entity.box(color="red"))
 /// ```
 @Scriptable("Scene", base: .View)
 @Observable

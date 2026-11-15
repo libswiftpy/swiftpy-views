@@ -14,15 +14,36 @@ enum NativeComponents {
     static func predicate(_ name: String) -> QueryPredicate<RealityKit.Entity>? {
         switch name {
         case "PerspectiveCameraComponent": .has(RealityKit.PerspectiveCameraComponent.self)
-        default: nil
+        default: registered[name]
         }
+    }
+
+    static var registered: [String: QueryPredicate<RealityKit.Entity>] = [:]
+}
+
+/// For other packages' components on `scenes` entities.
+@MainActor
+public enum SceneEntities {
+    /// The RealityKit entity behind a `scenes.Entity`.
+    public static func entity(_ object: PyObject) -> RealityKit.Entity? {
+        SceneEntity(object.reference)?.entity
+    }
+
+    /// The `scenes.Entity` for a RealityKit entity.
+    public static func object(_ entity: RealityKit.Entity) throws(PythonError) -> PyObject {
+        try SceneEntity.wrapper(for: entity).toPython()
+    }
+
+    /// Lets `context.query` find a component whose Python class has `_native = name`.
+    public static func registerComponent(_ name: String, predicate: QueryPredicate<RealityKit.Entity>) {
+        NativeComponents.registered[name] = predicate
     }
 }
 
 /// A perspective camera: the scene's view shows what it sees, from its
 /// entity's place and turn. Has no effect on visionOS, where the viewer moves.
 ///
-/// One made in Python holds its values; one read from an entity, with
+/// One made on its own holds its values; one read from an entity, with
 /// `entity.components[PerspectiveCameraComponent]`, is live: changing it
 /// changes the entity's camera.
 @Scriptable("PerspectiveCameraComponent")
