@@ -84,7 +84,11 @@ def _is_native(cls) -> bool:
 
 class Components:
     """An entity's components, by class: Python ones, and RealityKit's from
-    `scenes.components`."""
+    `scenes.components`.
+
+    ```python
+    spin = cube.components[Spin]
+    ```"""
 
     def __init__(self, entity: Entity) -> None:
         self._entity = entity
@@ -152,7 +156,15 @@ class System:
     printed to the card that registered it, and it's unregistered."""
 
     def update(self, context: SceneContext) -> None:
-        pass
+        """Override to change entities each frame. `context.query(...)` gives the
+        scene's entities with all the given components, and `context.delta_time`
+        the seconds since the last frame, to move by time rather than frames.
+
+        ```python
+        def update(self, context):
+            for entity in context.query(Spin):
+                entity.transform.rotation.yaw += entity.components[Spin].speed * context.delta_time
+        ```"""
 
     @classmethod
     def register(cls) -> None:
