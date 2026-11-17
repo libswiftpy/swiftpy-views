@@ -7,6 +7,8 @@ import c from "highlight.js/lib/languages/c";
 import cpp from "highlight.js/lib/languages/cpp";
 import css from "highlight.js/lib/languages/css";
 import diff from "highlight.js/lib/languages/diff";
+// TOML: highlight.js has it as an alias of ini.
+import ini from "highlight.js/lib/languages/ini";
 import javascript from "highlight.js/lib/languages/javascript";
 import json from "highlight.js/lib/languages/json";
 import markdown from "highlight.js/lib/languages/markdown";
@@ -20,7 +22,7 @@ import xml from "highlight.js/lib/languages/xml";
 import yaml from "highlight.js/lib/languages/yaml";
 
 for (const [name, language] of Object.entries({
-    bash, c, cpp, css, diff, javascript, json, markdown, plaintext, python,
+    bash, c, cpp, css, diff, ini, javascript, json, markdown, plaintext, python,
     shell, sql, swift, typescript, xml, yaml,
 })) {
     hljs.registerLanguage(name, language);

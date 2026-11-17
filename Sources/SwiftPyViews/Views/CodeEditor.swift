@@ -58,6 +58,8 @@ public final class CodeEditor {
     /// A bracket or quote brings its closer with it.
     var autoPairs: Bool
     var indentGuides: Bool
+    /// highlight.js's name for what it highlights, such as `toml`.
+    let language: String
 
     internal var selection = NSRange(location: 0, length: 0)
     /// Until the text view takes the caret: it may not exist yet.
@@ -106,13 +108,15 @@ public final class CodeEditor {
         isEditable: Bool = true,
         autoIndent: Bool = true,
         autoPairs: Bool = true,
-        indentGuides: Bool = true
+        indentGuides: Bool = true,
+        language: String = "python"
     ) {
         self.source = source
         self.isEditable = isEditable
         self.autoIndent = autoIndent
         self.autoPairs = autoPairs
         self.indentGuides = indentGuides
+        self.language = language
     }
 
     public func body() -> AnyView {
@@ -202,7 +206,7 @@ public final class CodeEditor {
     /// where the text is drawn.
     internal func highlight() async {
         for await source in Observations({ self.source }) {
-            let tokens = await CodeHighlighter.shared.tokens(for: source, language: "python")
+            let tokens = await CodeHighlighter.shared.tokens(for: source, language: language)
 
             // `source` may have been edited while highlighting.
             guard source == self.source else { continue }

@@ -171,5 +171,7 @@ public struct PythonWindows: Scene {
                 StaleWindow()
             }
         }
+        // Only Python opens these; files and links go to the app's own windows.
+        .handlesExternalEvents(matching: [])
     }
 }
