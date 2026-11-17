@@ -169,6 +169,7 @@ private extension SceneView {
 private struct SceneContent: View {
     let model: SceneView
     @Environment(\.isInWindow) private var isInWindow
+    @Environment(\.snapshotWork) private var snapshotWork
     /// The fitted side: the width in a card, which is square, the shorter side in a window.
     @State private var height: CGFloat?
     @State private var id = UUID()
@@ -177,7 +178,9 @@ private struct SceneContent: View {
         // Only the holder has a RealityView: an empty one for each other place
         // costs a Metal layer, and enough of them fail to allocate.
         Group {
-            if model.holder == id {
+            if let snapshotWork, Self.rendersSnapshots {
+                SceneSnapshot(model: model, work: snapshotWork)
+            } else if model.holder == id {
                 realityView
             } else {
                 Color.clear.overlay {
@@ -189,7 +192,8 @@ private struct SceneContent: View {
                 }
             }
         }
-        .onAppear { model.show(in: id) }
+        // A rendered snapshot leaves the root with the live view.
+        .onAppear { if snapshotWork == nil || !Self.rendersSnapshots { model.show(in: id) } }
         .onDisappear { model.hide(from: id) }
         // In a window it draws under the bars to the edges; fitting still uses
         // the safe area, measured outside this.
@@ -203,6 +207,14 @@ private struct SceneContent: View {
         // A window hands its whole space over, rather than scrolling a square.
         .fillsAvailableSpace()
     }
+
+    // A window's snapshot captures a RealityView on iOS, but not on macOS,
+    // nor visionOS, where it shows in space.
+    #if os(iOS)
+    private static let rendersSnapshots = false
+    #else
+    private static let rendersSnapshots = true
+    #endif
 
     private var realityView: some View {
         RealityView { content in
@@ -228,5 +240,27 @@ private struct SceneContent: View {
         .realityViewCameraControls(model.cameraControls)
         #endif
         .realityViewLayoutBehavior(.centered)
+    }
+}
+
+/// The scene drawn by `SceneRenderer` at the size it's laid out at.
+private struct SceneSnapshot: View {
+    let model: SceneView
+    let work: SnapshotWork
+    @Environment(\.displayScale) private var scale
+    @State private var image: CGImage?
+
+    var body: some View {
+        Color.clear
+            .overlay {
+                if let image {
+                    Image(decorative: image, scale: scale).resizable()
+                }
+            }
+            .onGeometryChange(for: CGSize.self, of: \.size) { size in
+                work.add { [model, scale] in
+                    image = await SceneRenderer.image(of: model, size: size, scale: scale)
+                }
+            }
     }
 }

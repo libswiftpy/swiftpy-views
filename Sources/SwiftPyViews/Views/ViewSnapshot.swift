@@ -25,6 +25,8 @@ public enum ViewSnapshot {
     }
 
     static func image(of view: AnyView, width: CGFloat?, delay: Double, background: Color?) async -> PlatformImage {
+        let work = SnapshotWork()
+        let view = AnyView(view.environment(\.snapshotWork, work))
         #if canImport(UIKit)
         let scene = UIApplication.shared.connectedScenes
             .compactMap { $0 as? UIWindowScene }
@@ -55,6 +57,7 @@ public enum ViewSnapshot {
         }
         fit()
         await settle(delay)
+        if await work.wait() { await settle(0) }
         fit()
 
         let format = UIGraphicsImageRendererFormat(for: window.traitCollection)
@@ -84,6 +87,7 @@ public enum ViewSnapshot {
         }
         fit()
         await settle(delay)
+        if await work.wait() { await settle(0) }
         fit()
 
         guard let bitmap = host.bitmapImageRepForCachingDisplay(in: host.bounds) else {
@@ -130,6 +134,29 @@ public enum ViewSnapshot {
         return renderer.nsImage ?? NSImage()
         #endif
     }
+}
+
+/// Work a view starts while it's being snapshotted, which the snapshot waits
+/// for: a view a window can't capture, such as a RealityView, draws itself another way.
+@MainActor
+public final class SnapshotWork {
+    private var tasks: [Task<Void, Never>] = []
+
+    public func add(_ work: @escaping @MainActor () async -> Void) {
+        tasks.append(Task { await work() })
+    }
+
+    /// Whether there was any.
+    fileprivate func wait() async -> Bool {
+        let any = !tasks.isEmpty
+        while !tasks.isEmpty { await tasks.removeFirst().value }
+        return any
+    }
+}
+
+extension EnvironmentValues {
+    /// Set while `ViewSnapshot` draws the view.
+    @Entry public var snapshotWork: SnapshotWork?
 }
 
 extension PlatformImage {
