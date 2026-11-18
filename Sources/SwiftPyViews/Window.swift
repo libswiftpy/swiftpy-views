@@ -268,13 +268,18 @@ private struct WindowContentContainer<Content: View>: View {
         if fillsAvailableSpace {
             content
         } else {
-            SwiftUI.ScrollView {
+            // Content that fits the window's height is centred in it, as an
+            // app's view is; only taller content scrolls, from the top.
+            ViewThatFits(in: .vertical) {
                 content
-                    .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(8)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                SwiftUI.ScrollView {
+                    content
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(8)
+                }
             }
-            // Content that already fits shouldn't rubber-band.
-            .scrollBounceBehavior(.basedOnSize)
         }
     }
 }
