@@ -201,7 +201,7 @@ struct WindowContent: View {
         @Bindable var window = window
 
         NavigationStack(path: $window.destinations) {
-            WindowContentContainer {
+            FittedContent {
                 SwiftUI.VStack(alignment: .leading, spacing: 8) {
                     ForEach(window.views.indices, id: \.self) { index in
                         window.views[index].asView
@@ -210,7 +210,7 @@ struct WindowContent: View {
             }
             .navigationTitle(window.title ?? "")
             .navigationDestination(for: Window.Destination.self) { destination in
-                WindowContentContainer {
+                FittedContent {
                     destination.view.asView
                 }
                 .navigationTitle(destination.title ?? window.title ?? "")
@@ -243,43 +243,6 @@ struct WindowContent: View {
     private var closeButton: some View {
         SwiftUI.Button(role: .close) {
             window.close()
-        }
-    }
-}
-
-/// A window's content, scrolling unless what it holds fills the space it is
-/// given. Filling content is handed the window whole: nesting it in the scroll
-/// view is what would cost it the safe area insets a scrollable view gets when
-/// it sits in the layout itself.
-private struct WindowContentContainer<Content: View>: View {
-    @ViewBuilder let content: Content
-
-    @State private var fillsAvailableSpace = false
-
-    var body: some View {
-        container
-            .onPreferenceChange(FillsAvailableSpaceKey.self) { fills in
-                fillsAvailableSpace = fills
-            }
-    }
-
-    @ViewBuilder
-    private var container: some View {
-        if fillsAvailableSpace {
-            content
-        } else {
-            // Content that fits the window's height is centred in it, as an
-            // app's view is; only taller content scrolls, from the top.
-            ViewThatFits(in: .vertical) {
-                content
-                    .padding(8)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                SwiftUI.ScrollView {
-                    content
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(8)
-                }
-            }
         }
     }
 }

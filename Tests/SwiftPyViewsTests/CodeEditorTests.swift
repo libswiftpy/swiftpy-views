@@ -105,6 +105,17 @@ struct CodeEditorTests {
 
         #expect(editor.source == "ran = 1")
     }
+    @Test func highlightsEachNewSource() async {
+        let editor = CodeEditor(source: "x = 1\n")
+        await editor.highlightSource()
+        #expect(editor.highlighted.source == editor.source)
+        // Replaced, as a reload does: highlighted again, as nothing waits on a loop.
+        editor.source = "def f() -> int:\n    return 1\n"
+        await editor.highlightSource()
+        #expect(editor.highlighted.source == editor.source)
+        #expect(!editor.highlighted.tokens.isEmpty)
+    }
+
     @Test func countsEveryKindOfLineBreak() {
         #expect("a\nb\nc".lineBreakCount == 2)
         #expect("a\r\nb\r\nc".lineBreakCount == 2)

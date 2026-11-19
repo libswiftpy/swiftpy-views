@@ -201,18 +201,20 @@ public final class CodeEditor {
         marked = Marked(source: source, marks: marks)
     }
 
-    /// Re-tokenizes ``source`` as it changes, until the calling task is cancelled.
-    /// The scopes don't depend on the color scheme; the palette resolves that
-    /// where the text is drawn.
-    internal func highlight() async {
-        for await source in Observations({ self.source }) {
-            let tokens = await CodeHighlighter.shared.tokens(for: source, language: language)
-
-            // `source` may have been edited while highlighting.
-            guard source == self.source else { continue }
-
-            highlighted = Highlighted(source: source, tokens: tokens)
-        }
+    /// Tokenizes ``source`` as it is now, the view starting one for each new
+    /// source: a loop waiting on its changes could stop for good, leaving the
+    /// code uncolored until the view was made again. The scopes don't depend
+    /// on the color scheme; the palette resolves that where the text is drawn.
+    internal func highlightSource() async {
+        let source = source
+        guard highlighted.source != source else { return }
+        // Quick typing cancels the ones between before they reach the highlighter.
+        try? await Task.sleep(for: .milliseconds(20))
+        guard !Task.isCancelled else { return }
+        let tokens = await CodeHighlighter.shared.tokens(for: source, language: language)
+        // Edited meanwhile: the newer source's own highlight colors it.
+        guard source == self.source else { return }
+        highlighted = Highlighted(source: source, tokens: tokens)
     }
 }
 
@@ -367,8 +369,8 @@ public struct CodeEditorContent: View {
         // A window hands its whole space over; a card proposes no height and
         // the editor keeps the code's own.
         .fillsAvailableSpace()
-        .task {
-            await model.highlight()
+        .task(id: model.source) {
+            await model.highlightSource()
         }
         // Not while read-only: AppKit focuses a selectable text view too.
         .task(id: isFocused && model.isEditable) {
