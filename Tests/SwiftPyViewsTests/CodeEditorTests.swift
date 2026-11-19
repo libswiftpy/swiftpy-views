@@ -105,6 +105,12 @@ struct CodeEditorTests {
 
         #expect(editor.source == "ran = 1")
     }
+    @Test func countsEveryKindOfLineBreak() {
+        #expect("a\nb\nc".lineBreakCount == 2)
+        #expect("a\r\nb\r\nc".lineBreakCount == 2)
+        #expect("a\rb".lineBreakCount == 1)
+        #expect("abc".lineBreakCount == 0)
+    }
 }
 
 @MainActor

@@ -283,7 +283,7 @@ public struct CodeEditorContent: View {
     }
 
     public var body: some View {
-        let lineCount = model.source.count { $0 == "\n" } + 1
+        let lineCount = model.source.lineBreakCount + 1
         let gutterWidth = CodeTextView.characterAdvance * CGFloat("\(lineCount + firstLine - 1)".count) + 16
 
         CodeTextView(
