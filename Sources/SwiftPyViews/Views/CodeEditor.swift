@@ -65,6 +65,7 @@ public final class CodeEditor {
     /// Until the text view takes the caret: it may not exist yet.
     internal var wantsFocus = false
     public internal(set) var isFocused = false
+    @ObservationIgnored private var completing: Task<Void, Never>?
     internal private(set) var highlighted = Highlighted()
     internal private(set) var marked = Marked()
 
@@ -146,6 +147,19 @@ public final class CodeEditor {
               let range = Range(selection, in: source)
         else { return nil }
         return range.lowerBound
+    }
+
+    /// Completes while it holds the caret. Started here rather than by a view
+    /// task keyed on focus: SwiftUI skips restarting that one when focus comes
+    /// during or just after a navigation push, which left the file without
+    /// suggestions.
+    internal func focusChanged(_ focused: Bool, completer: CodeCompleter?) {
+        completing?.cancel()
+        completing = nil
+        guard focused, isEditable, let completer else { return }
+        completing = Task { [weak self] in
+            await self?.complete(with: completer)
+        }
     }
 
     /// Drives `completer` while this editor holds the caret, until the calling
@@ -312,6 +326,7 @@ public struct CodeEditorContent: View {
                 isFocused = $0
                 model.isFocused = $0
                 if $0 { model.wantsFocus = false }
+                model.focusChanged($0, completer: completer)
             },
             onLineHeight: { lineHeight = $0 },
             onScrollEdges: { scrollEdges = $0 },
@@ -375,11 +390,8 @@ public struct CodeEditorContent: View {
         .task(id: model.source) {
             await model.highlightSource()
         }
-        // Not while read-only: AppKit focuses a selectable text view too.
-        .task(id: isFocused && model.isEditable) {
-            guard isFocused, model.isEditable, let completer else { return }
-            await model.complete(with: completer)
-        }
+        // Gone with the editor: its completion ends with it.
+        .onDisappear { model.focusChanged(false, completer: nil) }
     }
 
     /// Each row's number; in a diff, removed rows have none and the rest are
