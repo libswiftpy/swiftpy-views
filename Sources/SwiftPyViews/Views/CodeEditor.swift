@@ -208,14 +208,17 @@ public final class CodeEditor {
     internal func highlightSource() async {
         let source = source
         guard highlighted.source != source else { return }
-        // Quick typing cancels the ones between before they reach the highlighter.
+        // Quick typing makes the ones between stale before they reach the highlighter.
         try? await Task.sleep(for: .milliseconds(20))
-        guard !Task.isCancelled else { return }
+        // Not on cancellation: pushing a file cancels its view's task without
+        // starting it again, which left the code uncolored.
+        guard source == self.source else { return }
         let tokens = await CodeHighlighter.shared.tokens(for: source, language: language)
         // Edited meanwhile: the newer source's own highlight colors it.
         guard source == self.source else { return }
         highlighted = Highlighted(source: source, tokens: tokens)
     }
+
 }
 
 /// Zero-based rows of code shown as a diff: added ones green, removed ones red
