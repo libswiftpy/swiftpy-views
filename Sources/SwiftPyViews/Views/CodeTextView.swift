@@ -139,11 +139,14 @@ private extension NSTextLayoutManager {
             options: [.ensuresLayout, .ensuresExtraLineFragment]
         ) { fragment in
             let frame = fragment.layoutFragmentFrame
-            height = max(height, frame.maxY)
-            width = max(width, frame.maxX)
             // A line, not the fragment: a lone line's fragment is also the
             // last, which swallows the empty line after a trailing newline.
             if lineHeight == 0 { lineHeight = fragment.firstLineHeight }
+            // That empty line measures short, cutting it off; code doesn't
+            // wrap, so each of a fragment's lines is a whole line high.
+            let lines = CGFloat(fragment.textLineFragments.count)
+            height = max(height, frame.maxY, frame.minY + lines * fragment.firstLineHeight)
+            width = max(width, frame.maxX)
             return true
         }
 
