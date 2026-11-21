@@ -238,6 +238,13 @@ struct WindowContent: View {
         .onDisappear {
             Window.presentedWindows.remove(window.id)
         }
+        #if canImport(UIKit)
+        // Closing an iPad window ends its scene without the content
+        // disappearing, which left Home showing it open.
+        .background(SceneEndWatcher { [id = window.id] in
+            Window.presentedWindows.remove(id)
+        })
+        #endif
     }
 
     private var closeButton: some View {
@@ -372,3 +379,40 @@ public extension View {
         modifier(WindowActionsModifier(isHome: isHome))
     }
 }
+
+#if canImport(UIKit)
+/// Calls `ended` when the scene its view is in disconnects.
+private struct SceneEndWatcher: UIViewRepresentable {
+    let ended: @MainActor () -> Void
+
+    func makeUIView(context: Context) -> WatcherView { WatcherView(ended: ended) }
+    func updateUIView(_ view: WatcherView, context: Context) {}
+
+    final class WatcherView: UIView {
+        let ended: @MainActor () -> Void
+        private var observer: (any NSObjectProtocol)?
+
+        init(ended: @escaping @MainActor () -> Void) {
+            self.ended = ended
+            super.init(frame: .zero)
+            isUserInteractionEnabled = false
+        }
+        required init?(coder: NSCoder) { fatalError() }
+
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            guard let scene = window?.windowScene else { return }
+            if let observer { NotificationCenter.default.removeObserver(observer) }
+            observer = NotificationCenter.default.addObserver(
+                forName: UIScene.didDisconnectNotification, object: scene, queue: .main
+            ) { [ended] _ in
+                MainActor.assumeIsolated { ended() }
+            }
+        }
+
+        isolated deinit {
+            if let observer { NotificationCenter.default.removeObserver(observer) }
+        }
+    }
+}
+#endif
