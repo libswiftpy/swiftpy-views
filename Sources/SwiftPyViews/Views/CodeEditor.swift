@@ -330,7 +330,9 @@ public struct CodeEditorContent: View {
             },
             onLineHeight: { lineHeight = $0 },
             onScrollEdges: { scrollEdges = $0 },
-            onScrollOffset: { [scrollPosition] in scrollPosition.offset = $0 }
+            onScrollOffset: { [scrollPosition] in scrollPosition.offset = $0 },
+            completer: completer,
+            onCompletionAnchor: { [completer] in completer?.moveAnchor(model, to: $0) }
         )
         // A shadow where the code carries on past the trailing edge, to say so.
         .overlay(alignment: .trailing) {

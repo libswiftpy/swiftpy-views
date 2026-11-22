@@ -89,9 +89,15 @@ final class SceneEntity {
     /// The wrapper of each entity Python holds, so `scene.entities[0] is box`.
     internal static let wrappers = NSMapTable<RealityKit.Entity, SceneEntity>.weakToWeakObjects()
 
-    init(name: String = "") {
-        entity = RealityKit.Entity()
-        entity.name = name
+    /// path: A model file to load, such as a USDZ, waiting for it; `load` doesn't wait.
+    init(name: String = "", path: String? = nil) throws {
+        if let path {
+            entity = try RealityKit.Entity.load(contentsOf: Path(path).url)
+            if !name.isEmpty { entity.name = name }
+        } else {
+            entity = RealityKit.Entity()
+            entity.name = name
+        }
         Self.wrappers.setObject(self, forKey: entity)
     }
 

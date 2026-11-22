@@ -52,6 +52,11 @@ struct CodeTextView {
     let onScrollEdges: (ScrollEdges) -> Void
     /// How far the code is scrolled sideways, on every change.
     let onScrollOffset: (CGFloat) -> Void
+    /// Whose dropdown takes Return, Tab, the arrows and Escape while it's up.
+    var completer: CodeCompleter? = nil
+    /// Where the word at the caret starts, and the open paren of the call it's
+    /// in, in window coordinates, while focused.
+    var onCompletionAnchor: (CompletionAnchor?) -> Void = { _ in }
 
     struct Mark: Equatable {
         let range: NSRange
@@ -119,6 +124,81 @@ extension CodeTextView {
 
     /// An unbounded text container, which is what stops it from wrapping.
     fileprivate static let unboundedSize = CGSize(width: 1_000_000, height: 1_000_000)
+
+    /// Where the identifier ending at `location` starts: the part after any
+    /// dot, which is what a completion's name replaces.
+    static func wordStart(in text: NSString, at location: Int) -> Int {
+        var start = min(location, text.length)
+        while start > 0 {
+            let unit = text.character(at: start - 1)
+            let isWord = unit == 0x5F || unit > 0x7F
+                || (unit >= 0x30 && unit <= 0x39) || (unit >= 0x41 && unit <= 0x5A) || (unit >= 0x61 && unit <= 0x7A)
+            guard isWord else { break }
+            start -= 1
+        }
+        return start
+    }
+}
+
+/// Where the dropdown lines up, in window coordinates, each a line high.
+struct CompletionAnchor: Equatable {
+    /// The word at the caret's start: a row's name goes under it.
+    var word: CGRect
+    /// The open paren of the call the caret is in: signature help's goes over it.
+    var call: CGRect?
+}
+
+extension CodeTextView {
+    /// The open paren of the innermost call around `location`, by brackets
+    /// alone; nil outside one, or past a line that isn't continued.
+    static func openParen(in text: NSString, before location: Int) -> Int? {
+        var depth = 0
+        var index = min(location, text.length) - 1
+        // Arguments rarely run this far; a longer scan isn't worth a keystroke.
+        let limit = max(0, index - 2000)
+        while index >= limit {
+            switch text.character(at: index) {
+            case 0x29, 0x5D, 0x7D: depth += 1 // ) ] }
+            case 0x28: // (
+                if depth == 0 { return index }
+                depth -= 1
+            case 0x5B, 0x7B: // [ {
+                if depth == 0 { return nil }
+                depth -= 1
+            default: break
+            }
+            index -= 1
+        }
+        return nil
+    }
+}
+
+/// A key the completion dropdown takes while it's up.
+enum CompletionKey {
+    case up, down, escape
+}
+
+extension CodeTextView.Coordinator {
+    /// Moves the dropdown's selection or hides it; false when it isn't up.
+    /// Escape also hides signature help shown alone.
+    func handle(_ key: CompletionKey) -> Bool {
+        guard let completer = parent.completer,
+              completer.isShowingDropdown || (key == .escape && completer.isShowingSignature)
+        else { return false }
+        switch key {
+        case .up: completer.moveSelection(by: -1)
+        case .down: completer.moveSelection(by: 1)
+        case .escape: completer.dismissDropdown()
+        }
+        return true
+    }
+
+    /// Return or Tab apply the dropdown's selection while it's up.
+    func applyCompletion() -> Bool {
+        guard let completer = parent.completer, completer.isShowingDropdown else { return false }
+        completer.applySelected()
+        return true
+    }
 }
 
 private extension NSTextLayoutManager {
@@ -535,6 +615,39 @@ final class CodeUITextView: UITextView {
     var showsIndentGuides = true {
         didSet { if showsIndentGuides != oldValue { setNeedsDisplay() } }
     }
+    /// The completion dropdown's keys; true when it took one.
+    var onCompletionKey: ((CompletionKey) -> Bool)?
+    /// Keys taken on the way down, so their release isn't passed on either.
+    /// Optional: UIKit's `init(usingTextLayoutManager:)` skips Swift's
+    /// initial values, and a nil reads right from zeroed memory.
+    private var takenKeys: Set<UIKeyboardHIDUsage>?
+
+    override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        if presses.count == 1, let key = presses.first?.key,
+           key.modifierFlags.intersection([.command, .alternate, .control, .shift]).isEmpty {
+            let action: CompletionKey? = switch key.keyCode {
+            case .keyboardUpArrow: .up
+            case .keyboardDownArrow: .down
+            case .keyboardEscape: .escape
+            default: nil
+            }
+            if let action, onCompletionKey?(action) == true {
+                takenKeys = (takenKeys ?? []).union([key.keyCode])
+                return
+            }
+        }
+        super.pressesBegan(presses, with: event)
+    }
+
+    override func pressesEnded(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        let rest = presses.filter { $0.key.map { takenKeys?.remove($0.keyCode) == nil } ?? true }
+        if !rest.isEmpty { super.pressesEnded(rest, with: event) }
+    }
+
+    override func pressesCancelled(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        let rest = presses.filter { $0.key.map { takenKeys?.remove($0.keyCode) == nil } ?? true }
+        if !rest.isEmpty { super.pressesCancelled(rest, with: event) }
+    }
 
     // A touch that stops a scrolling container only stops it, rather than
     // also putting the caret in the code.
@@ -572,6 +685,23 @@ final class CodeScrollView: UIScrollView {
     /// Set when the caret is given rather than tapped in: a tap lands where
     /// the user can see, but a new card may be under the keyboard.
     var revealsCaretWithKeyboard = false
+
+    /// The document around it scrolled, which moves the caret on screen
+    /// without any callback of the text view's.
+    var onOuterScroll: (@MainActor () -> Void)?
+    private var outerScroll: NSKeyValueObservation?
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        outerScroll = nil
+        guard window != nil, CodeCompleter.showsDropdown,
+              let outer = sequence(first: superview, next: { $0?.superview })
+                .lazy.compactMap({ $0 as? UIScrollView }).first
+        else { return }
+        outerScroll = outer.observe(\.contentOffset) { [weak self] _, _ in
+            MainActor.assumeIsolated { self?.onOuterScroll?() }
+        }
+    }
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -675,7 +805,13 @@ extension CodeTextView: UIViewRepresentable {
         scrollView.onLayout = { [weak scrollView, coordinator = context.coordinator] in
             guard let scrollView else { return }
             coordinator.reportScroll(of: scrollView)
+            coordinator.reportAnchor(of: scrollView.textView)
         }
+        scrollView.onOuterScroll = { [weak textView, coordinator = context.coordinator] in
+            guard let textView else { return }
+            coordinator.reportAnchor(of: textView)
+        }
+        textView.onCompletionKey = { [coordinator = context.coordinator] in coordinator.handle($0) }
         scrollView.alwaysBounceVertical = false
         scrollView.alwaysBounceHorizontal = false
         scrollView.showsVerticalScrollIndicator = false
@@ -804,6 +940,7 @@ extension CodeTextView.Coordinator: UITextViewDelegate {
 
     func textViewDidBeginEditing(_ textView: UITextView) {
         parent.onFocusChange(true)
+        reportAnchor(of: textView)
     }
 
     func textViewDidEndEditing(_ textView: UITextView) {
@@ -814,10 +951,29 @@ extension CodeTextView.Coordinator: UITextViewDelegate {
         guard !isApplyingUpdate else { return }
         parent.selection = textView.selectedRange
         (textView.superview as? CodeScrollView)?.scrollToCaret()
+        reportAnchor(of: textView)
     }
 
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
         reportScroll(of: scrollView)
+        if let scrollView = scrollView as? CodeScrollView { reportAnchor(of: scrollView.textView) }
+    }
+
+    /// The start of the word at the caret, on screen, for the dropdown.
+    fileprivate func reportAnchor(of textView: UITextView) {
+        guard CodeCompleter.showsDropdown, !isApplyingUpdate, textView.isFirstResponder else { return }
+        let selection = textView.selectedRange
+        let text = textView.text as NSString
+        guard selection.length == 0, textView.window != nil else { return parent.onCompletionAnchor(nil) }
+        func rect(at offset: Int) -> CGRect? {
+            guard let position = textView.position(from: textView.beginningOfDocument, offset: offset) else { return nil }
+            let caret = textView.caretRect(for: position)
+            guard !caret.isNull, caret.maxY.isFinite else { return nil }
+            return textView.convert(caret, to: nil)
+        }
+        guard let word = rect(at: CodeTextView.wordStart(in: text, at: selection.location)) else { return }
+        let call = CodeTextView.openParen(in: text, before: selection.location).flatMap(rect(at:))
+        parent.onCompletionAnchor(CompletionAnchor(word: word, call: call))
     }
 
     /// More than the one character behind the caret: an empty pair, or a
@@ -846,6 +1002,10 @@ extension CodeTextView.Coordinator: UITextViewDelegate {
         replacementText text: String
     ) -> Bool {
         let source = textView.text as NSString
+
+        if text == "\n" || text == "\t", applyCompletion() {
+            return false
+        }
 
         if text == "\t" {
             textView.insertText(String(repeating: " ", count: CodeIndent.width))
@@ -933,13 +1093,17 @@ extension CodeTextView: NSViewRepresentable {
         }
 
         let scrollView = CodeScrollView()
-        scrollView.onScroll = { [coordinator = context.coordinator] clipView in
+        scrollView.onScroll = { [coordinator = context.coordinator, weak textView] clipView in
             coordinator.parent.reportScroll(
                 offset: clipView.bounds.origin.x,
                 visibleWidth: clipView.bounds.width,
                 contentWidth: coordinator.codeWidth,
                 to: coordinator
             )
+            if let textView { coordinator.reportAnchor(of: textView) }
+        }
+        scrollView.onOuterScroll = { [coordinator = context.coordinator, weak textView] in
+            if let textView { coordinator.reportAnchor(of: textView) }
         }
         scrollView.documentView = textView
         scrollView.drawsBackground = false
@@ -1043,10 +1207,52 @@ extension CodeTextView.Coordinator: NSTextViewDelegate {
               let textView = notification.object as? NSTextView
         else { return }
         parent.selection = textView.selectedRange()
+        reportAnchor(of: textView)
+    }
+
+    /// The start of the word at the caret, in the window's top-left
+    /// coordinates as SwiftUI's global space has them, for the dropdown.
+    fileprivate func reportAnchor(of textView: NSTextView) {
+        // Not while SwiftUI writes to the view: a change then is another update.
+        guard CodeCompleter.showsDropdown, !isApplyingUpdate, let window = textView.window,
+              window.firstResponder === textView else { return }
+        let selection = textView.selectedRange()
+        let text = textView.string as NSString
+        guard selection.length == 0, let content = window.contentView,
+              let layout = textView.textLayoutManager, let storage = layout.textContentManager
+        else { return parent.onCompletionAnchor(nil) }
+        // From the layout, not `firstRect(forCharacterRange:)`: that goes
+        // through text input and redraws the view, a flicker on every key.
+        func rect(at offset: Int) -> CGRect? {
+            guard let location = storage.location(storage.documentRange.location, offsetBy: offset),
+                  let range = NSTextRange(location: location, end: location) else { return nil }
+            var segment: CGRect?
+            layout.enumerateTextSegments(in: range, type: .standard, options: []) { _, frame, _, _ in
+                segment = frame
+                return false
+            }
+            guard var rect = segment, !rect.isNull else { return nil }
+            rect = rect.offsetBy(dx: textView.textContainerOrigin.x, dy: textView.textContainerOrigin.y)
+            rect = content.convert(textView.convert(rect, to: nil), from: nil)
+            if !content.isFlipped { rect.origin.y = content.bounds.height - rect.maxY }
+            return rect
+        }
+        guard let word = rect(at: CodeTextView.wordStart(in: text, at: selection.location)) else { return }
+        let call = CodeTextView.openParen(in: text, before: selection.location).flatMap(rect(at:))
+        parent.onCompletionAnchor(CompletionAnchor(word: word, call: call))
     }
 
     func textView(_ textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
         let selection = textView.selectedRange()
+
+        switch commandSelector {
+        case #selector(NSResponder.moveUp(_:)): if handle(.up) { return true }
+        case #selector(NSResponder.moveDown(_:)): if handle(.down) { return true }
+        case #selector(NSResponder.cancelOperation(_:)): if handle(.escape) { return true }
+        case #selector(NSResponder.insertNewline(_:)), #selector(NSResponder.insertTab(_:)):
+            if applyCompletion() { return true }
+        default: break
+        }
 
         switch commandSelector {
         case #selector(NSResponder.insertTab(_:)):
@@ -1180,6 +1386,27 @@ final class CodeNSTextView: NSTextView {
 /// fires when the document is resized, so a longer line is noticed too.
 private final class CodeScrollView: NSScrollView {
     var onScroll: (@MainActor (NSClipView) -> Void)?
+    /// The document around it scrolled, moving the caret on screen.
+    var onOuterScroll: (@MainActor () -> Void)?
+    private var outerClip: NSClipView?
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if let outerClip {
+            NotificationCenter.default.removeObserver(self, name: NSView.boundsDidChangeNotification, object: outerClip)
+        }
+        outerClip = nil
+        guard window != nil, CodeCompleter.showsDropdown, let outer = superview?.enclosingScrollView else { return }
+        outerClip = outer.contentView
+        outer.contentView.postsBoundsChangedNotifications = true
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(outerDidScroll), name: NSView.boundsDidChangeNotification, object: outer.contentView
+        )
+    }
+
+    @objc private func outerDidScroll() {
+        onOuterScroll?()
+    }
 
     override func setFrameSize(_ newSize: NSSize) {
         let origin = contentView.bounds.origin

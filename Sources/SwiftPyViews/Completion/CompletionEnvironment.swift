@@ -48,7 +48,9 @@ public struct CompletionBar<Leading: View, Trailing: View>: View {
     public var body: some View {
         // Not even the tab fallback: Markdown isn't indented by it.
         let completes = completer?.isEditingMarkdown != true
-        let completions = completes ? completer?.completions ?? [] : []
+        // The dropdown at the caret lists them instead, calls with the rest.
+        let dropsDown = CodeCompleter.showsDropdown && completer?.presentsDropdown == true
+        let completions = completes && !dropsDown ? completer?.completions ?? [] : []
         let calls = completions.filter { $0.signature != nil }
         SwiftUI.VStack(alignment: .leading, spacing: 0) {
             // The calls of the name at the caret, where their signature help will be.
@@ -63,7 +65,7 @@ public struct CompletionBar<Leading: View, Trailing: View>: View {
                 .glassChipStyle()
                 .buttonBorderShape(.capsule)
                 .monospaced()
-            } else if completes, let signature = completer?.signature ?? expansion?.signature {
+            } else if completes, !dropsDown, let signature = completer?.signature ?? expansion?.signature {
                 // Grows from where the chip was. Only drawn scaled: a matched
                 // geometry gave it the chip's width to wrap the signature in.
                 SignatureHelpView(help: signature)
@@ -75,6 +77,7 @@ public struct CompletionBar<Leading: View, Trailing: View>: View {
                 // Its own inset: padding here would hold the space while it's empty.
                 leading
 
+                // With the dropdown listing them, only its Tab chip.
                 if completes {
                     CompletionsView(completions: completions.filter { $0.signature == nil }) { suggestion in
                         completer?.apply(suggestion.text)

@@ -85,8 +85,7 @@ struct SuggestionChip: View {
     }
 
     private func iconStyle(for kind: CodeSuggestion.Kind) -> AnyShapeStyle {
-        guard let scope = kind.scope else { return AnyShapeStyle(.secondary) }
-        return AnyShapeStyle(Color(CodePalette.xcode.color(for: scope, in: colorScheme)))
+        kind.iconStyle(in: colorScheme)
     }
 }
 
