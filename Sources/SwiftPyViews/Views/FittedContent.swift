@@ -15,7 +15,7 @@ public struct FittedContent<Content: View>: View {
     private let content: Content
     @State private var fillsAvailableSpace = false
 
-    public init(scrolling axes: Axis.Set = .vertical, padding: CGFloat = 8, @ViewBuilder content: () -> Content) {
+    public init(scrolling axes: Axis.Set = .vertical, padding: CGFloat = 0, @ViewBuilder content: () -> Content) {
         self.axes = axes
         self.padding = padding
         self.content = content()
